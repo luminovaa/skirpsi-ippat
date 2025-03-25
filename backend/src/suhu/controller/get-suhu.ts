@@ -2,6 +2,8 @@ import { PrismaClient } from "@prisma/client";
 import { asyncHandler } from "../../../utils/async_handler";
 import { responseData, responseMessage } from "../../../utils/respone_handler";
 import { Response } from "express";
+import { toZonedTime } from "date-fns-tz";
+import { endOfDay, startOfDay } from "date-fns";
 
 const prisma = new PrismaClient();
 
@@ -17,13 +19,16 @@ const getAllSuhu = asyncHandler(async (req: Request, res: Response<any, Record<s
 
 const getAverageSuhuToday = asyncHandler(async (req: Request, res: Response<any, Record<string, any>>): Promise<void> => {
     try {
-        const now = new Date();
-        const offset = now.getTimezoneOffset() * 60 * 1000;
-        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        startOfDay.setTime(startOfDay.getTime() + offset);
-        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-        endOfDay.setTime(endOfDay.getTime() + offset);
-
+        // Set timezone to WIB (Asia/Jakarta)
+        const timeZone = 'Asia/Jakarta';
+        
+        // Get current time in WIB
+        const now = toZonedTime(new Date(), timeZone);
+        
+        // Get start and end of day in WIB
+        const startOfDayWIB = startOfDay(now);
+        const endOfDayWIB = endOfDay(now);
+        
         const data = await prisma.suhu.aggregate({
             _avg: {
                 temperature: true
@@ -36,17 +41,22 @@ const getAverageSuhuToday = asyncHandler(async (req: Request, res: Response<any,
             },
             where: {
                 created_at: {
-                    gte: startOfDay,
-                    lt: endOfDay,
+                    gte: startOfDayWIB,
+                    lt: endOfDayWIB,
                 },
             },
         });
-        const suhuToday = {
+
+        console.log("Start of Day (WIB):", startOfDayWIB);
+        console.log("End of Day (WIB):", endOfDayWIB);
+        
+        const result = {
             average: data._avg.temperature,
             min: data._min.temperature,
             max: data._max.temperature
         };
-        responseData(res, 200, "Success", suhuToday);
+
+        responseData(res, 200, "Success", result);
     } catch (error) {
         console.error("Error fetching data: ", error);
         responseMessage(res, 500, "Terjadi kesalahan pada server");
