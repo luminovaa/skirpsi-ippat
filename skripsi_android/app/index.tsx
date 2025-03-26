@@ -1,23 +1,44 @@
-import React from 'react';
-import { Text, View, StyleSheet } from 'react-native';
+import React from "react";
+import { View, StyleSheet, Text, ScrollView } from "react-native";
 import { useTheme } from "@/hooks/use-theme";
-import TemperatureDashboard from '@/components/suhu/temperatur';
+import TemperatureDashboard from "@/components/suhu/temperature";
 
 export default function HomeScreen() {
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      contentContainerStyle={styles.contentContainer}
+    >
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>
+          Home
+        </Text>
+      </View>
       <TemperatureDashboard />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: 20,
   },
   text: {
     fontSize: 24,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    marginBottom: 10,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+  },
+  contentContainer: {
+    paddingBottom: 30,
   },
 });

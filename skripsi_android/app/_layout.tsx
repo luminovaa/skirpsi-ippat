@@ -5,13 +5,21 @@ import { Tabs } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
 export default function AppLayout() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
+}
+
+function AppContent() {
   const { theme } = useTheme();
 
   return (
-    <ThemeProvider>
+    <>
       <StatusBar style={theme === "dark" ? "light" : "dark"} />
       <TabsWithTheme />
-    </ThemeProvider>
+    </>
   );
 }
 

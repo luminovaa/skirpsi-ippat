@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTheme } from '@/hooks/use-theme';
-import { suhu } from '@/utils/type';
-import { getAverageSuhuToday, getLatestSuhu } from '@/api/suhu-api';
+import { pzem } from '@/utils/type';
+import { getAveragePzemToday, getLatestPzem } from '@/api/pzem-api';
 
-const TemperatureDashboard = () => {
+const PzemDashboard = () => {
   const { colors } = useTheme();
-  const [todayStats, setTodayStats] = useState<suhu>();
-  const [latestSuhu, setLatestSuhu] = useState<suhu>();
+  const [todayStats, setTodayStats] = useState<pzem>();
+  const [latestPzem, setLatestPzem] = useState<pzem>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null); // Updated type here
 
@@ -15,12 +15,12 @@ const TemperatureDashboard = () => {
     const fetchTemperatureData = async () => {
       try {
         // Fetch today's temperature statistics
-        const averageResponse = await getAverageSuhuToday();
+        const averageResponse = await getAveragePzemToday();
         setTodayStats(averageResponse.data);
 
         // Fetch latest temperature reading
-        const latestResponse = await getLatestSuhu();
-        setLatestSuhu(latestResponse.data);
+        const latestResponse = await getLatestPzem();
+        setLatestPzem(latestResponse.data);
 
         setLoading(false);
       } catch (err) {
@@ -109,13 +109,13 @@ const TemperatureDashboard = () => {
           <View style={styles.gridItem}>
             <Text style={styles.gridLabel}>Average</Text>
             <Text style={styles.gridValue}>
-              {todayStats!.average ? todayStats!.average + '°C' : 'N/A'}
+              {latestPzem!.voltage ? latestPzem!.voltage + 'V' : 'N/A'}
             </Text>
           </View>
           <View style={styles.gridItem}>
             <Text style={styles.gridLabel}>Min</Text>
             <Text style={styles.gridValue}>
-              {todayStats!.min ? todayStats!.min + '°C' : 'N/A'}
+              {latestPzem!.current ? latestPzem!.current + 'A' : 'N/A'}
             </Text>
           </View>
         </View>
@@ -125,13 +125,13 @@ const TemperatureDashboard = () => {
           <View style={styles.gridItem}>
             <Text style={styles.gridLabel}>Max</Text>
             <Text style={styles.gridValue}>
-              {todayStats!.max ? todayStats!.max + '°C' : 'N/A'}
+              {latestPzem!.power ? latestPzem!.power + 'W' : 'N/A'}
             </Text>
           </View>
           <View style={styles.gridItem}>
             <Text style={styles.gridLabel}>Latest</Text>
             <Text style={styles.gridValue}>
-              {latestSuhu ? latestSuhu.temperature + '°C' : 'N/A'}
+              {latestPzem ? latestPzem.energy + 'kWh' : 'N/A'}
             </Text>
           </View>
         </View>
@@ -140,4 +140,4 @@ const TemperatureDashboard = () => {
   );
 };
 
-export default TemperatureDashboard;
+export default PzemDashboard;
