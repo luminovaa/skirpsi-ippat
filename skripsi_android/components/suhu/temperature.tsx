@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useTheme } from "@/hooks/use-theme";
 import { suhu } from "@/utils/type";
 import { getAverageSuhuToday, getLatestSuhu } from "@/api/suhu-api";
+import Snowfall from "./snowfall";
 
 const TemperatureDashboard = () => {
   const { colors } = useTheme();
@@ -49,6 +50,7 @@ const TemperatureDashboard = () => {
       flex: 1,
       paddingHorizontal: 20,
       backgroundColor: colors.background,
+      paddingBottom: 20,
     },
     gridContainer: {
       width: "100%",
@@ -99,7 +101,6 @@ const TemperatureDashboard = () => {
       color: colors.textSecondary,
       fontSize: 18,
       textAlign: 'center',
-      // marginTop: 10x`,
     }
   });
 
@@ -121,6 +122,9 @@ const TemperatureDashboard = () => {
 
   return (
     <View style={styles.container}>
+      {/* Add Snowfall component when temperature is Cold */}
+      <Snowfall isActive={temperatureClassification === "Cold"} />
+      
       <View style={styles.gridContainer}>
         <View style={styles.titleContainer}>
           <Text style={styles.titleText}>Temperature</Text>

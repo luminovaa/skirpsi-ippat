@@ -2,6 +2,7 @@ import React from "react";
 import { View, StyleSheet, Text, ScrollView } from "react-native";
 import { useTheme } from "@/hooks/use-theme";
 import TemperatureDashboard from "@/components/suhu/temperature";
+import PzemDashboard from "@/components/pzem/pzem-card";
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -17,6 +18,7 @@ export default function HomeScreen() {
         </Text>
       </View>
       <TemperatureDashboard />
+      <PzemDashboard/>
     </ScrollView>
   );
 }

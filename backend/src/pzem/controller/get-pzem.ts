@@ -2,6 +2,8 @@ import { PrismaClient } from "@prisma/client";
 import { asyncHandler } from "../../../utils/async_handler";
 import { responseData, responseMessage } from "../../../utils/respone_handler";
 import { Response } from "express";
+import { toZonedTime } from "date-fns-tz";
+import { endOfDay, startOfDay } from "date-fns";
 
 const prisma = new PrismaClient();
 
@@ -17,12 +19,14 @@ const getAllPzem = asyncHandler(async (req: Request, res: Response<any, Record<s
 
 const getAveragePzemToday = asyncHandler(async (req: Request, res: Response<any, Record<string, any>>): Promise<void> => {
     try {
-        const now = new Date();
-        const offset = now.getTimezoneOffset() * 60 * 1000;
-        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        startOfDay.setTime(startOfDay.getTime() + offset);
-        const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-        endOfDay.setTime(endOfDay.getTime() + offset);
+        const timeZone = 'Asia/Jakarta';
+
+        // Get current time in WIB
+        const now = toZonedTime(new Date(), timeZone);
+
+        // Get start and end of day in WIB
+        const startOfDayWIB = startOfDay(now);
+        const endOfDayWIB = endOfDay(now);
 
         const data = await prisma.pzem.aggregate({
             _avg: {
@@ -36,8 +40,8 @@ const getAveragePzemToday = asyncHandler(async (req: Request, res: Response<any,
             },
             where: {
                 created_at: {
-                    gte: startOfDay,
-                    lt: endOfDay,
+                    gte: startOfDayWIB,
+                    lt: endOfDayWIB,
                 },
             },
         });
