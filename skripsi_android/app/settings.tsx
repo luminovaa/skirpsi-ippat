@@ -6,9 +6,9 @@ export default function SettingScreen() {
   const { colors, toggleTheme, theme } = useTheme();
   
   const teamMembers = [
-    { id: 1, name: "Ahmad Rizki", role: "Lead Developer", avatar: require("@/assets/images/icon.png") },
-    { id: 2, name: "Siti Nurhayati", role: "UI/UX Designer", avatar: require("@/assets/images/icon.png") },
-    { id: 3, name: "Budi Santoso", role: "Backend Developer", avatar: require("@/assets/images/icon.png") },
+    { id: 1, name: "Arfa Erdianto S", role: "Mobile Dev", avatar: require("@/assets/images/icon.png") },
+    { id: 2, name: "M Iffat Firdaus", role: "IOT Engineer", avatar: require("@/assets/images/icon.png") },
+    { id: 3, name: "M Zidan Ainur R", role: "FullStack Developer", avatar: require("@/assets/images/icon.png") },
   ];
 
   const renderSettingItem = (icon: string, title: string, action: () => void, showToggle: boolean = false) => (

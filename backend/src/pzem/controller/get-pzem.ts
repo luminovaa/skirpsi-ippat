@@ -21,10 +21,8 @@ const getAveragePzemToday = asyncHandler(async (req: Request, res: Response<any,
     try {
         const timeZone = 'Asia/Jakarta';
 
-        // Get current time in WIB
         const now = toZonedTime(new Date(), timeZone);
 
-        // Get start and end of day in WIB
         const startOfDayWIB = startOfDay(now);
         const endOfDayWIB = endOfDay(now);
 

@@ -3,15 +3,14 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { Server } from 'http';
 import routes from './routes';
+import { createWebSocketServer } from './utils/ws-server';
 
 const app = express();
 
-// Middleware
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-// Error Handling
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   res.status(500).json({
@@ -22,11 +21,11 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 
 routes(app);
 
-const PORT: number = parseInt(process.env.PORT || '0');
+const PORT: number = parseInt(process.env.PORT || '3000');
 
 const server: Server = app.listen(PORT, () => {
   const address = server.address();
-  
+
   if (address) {
     if (typeof address === 'string') {
       console.log(`Server is running on socket: ${address}`);
@@ -38,13 +37,14 @@ const server: Server = app.listen(PORT, () => {
   }
 });
 
-// Tangani error startup
+// Buat WebSocket server
+createWebSocketServer(server);
+
 server.on('error', (error: Error) => {
   console.error('Server startup error:', error);
   process.exit(1);
 });
 
-// Tangani shutdown gracefully
 process.on('SIGTERM', () => {
   console.log('SIGTERM received. Shutting down gracefully');
   server.close(() => {

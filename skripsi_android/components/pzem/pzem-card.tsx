@@ -2,30 +2,38 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useTheme } from "@/hooks/use-theme";
 import { pzem } from "@/utils/type";
-import { getLatestPzem } from "@/api/pzem-api";
+import { useWebSocket } from "@/service/websocket";
 
 const PzemDashboard = () => {
   const { colors } = useTheme();
   const [latestPzem, setLatestPzem] = useState<pzem>();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null); // Updated type here
+  const [error, setError] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
-  useEffect(() => {
-    const fetchTemperatureData = async () => {
-      try {
-        const latestResponse = await getLatestPzem();
-        setLatestPzem(latestResponse.data.data);
+  const wsUrl = process.env.EXPO_PUBLIC_WS_URL!;
 
-        setLoading(false);
-      } catch (err) {
-        console.error("Error fetching temperature data:", err);
-        setError("Failed to fetch temperature data");
-        setLoading(false);
+  // Gunakan hook WebSocket
+  useWebSocket(wsUrl, {
+    onOpen: () => {
+      setIsConnected(true);
+      setLoading(false);
+    },
+    onMessage: (message) => {
+      if (message.type === 'latest_data') {
+        setLatestPzem(message.data.pzem);
       }
-    };
-
-    fetchTemperatureData();
-  }, []);
+    },
+    onClose: () => {
+      setIsConnected(false);
+      setError('Disconnected from server');
+    },
+    onError: (err) => {
+      console.error('WebSocket error:', err);
+      setError('Connection error');
+      setIsConnected(false);
+    }
+  });
 
   const styles = StyleSheet.create({
     container: {
@@ -75,8 +83,21 @@ const PzemDashboard = () => {
     loadingIndicator: {
       color: colors.primary,
     },
-
+    connectionStatus: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      backgroundColor: isConnected ? colors.success : colors.danger,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    
     //TEXT
+    connectionStatusText: {
+      color: colors.text,
+      fontSize: 12,
+    },
     errorText: {
       color: colors.danger,
       fontSize: 18,
@@ -112,9 +133,12 @@ const PzemDashboard = () => {
       <View style={styles.gridContainer}>
         <View style={styles.titleContainer}>
           <Text style={styles.titleText}>Power Usage</Text>
-          <Text style={styles.nowText}>Now</Text>
+          <View style={styles.connectionStatus}>
+            <Text style={styles.connectionStatusText}>
+              {isConnected ? 'LIVE' : 'OFFLINE'}
+            </Text>
+          </View>
         </View>
-        {/* First Row */}
         <View style={styles.row}>
           <View style={styles.gridItem}>
             <Text style={styles.gridLabel}>Voltage</Text>
@@ -130,7 +154,6 @@ const PzemDashboard = () => {
           </View>
         </View>
 
-        {/* Second Row */}
         <View style={styles.row}>
           <View style={styles.gridItem}>
             <Text style={styles.gridLabel}>Power</Text>
@@ -141,7 +164,7 @@ const PzemDashboard = () => {
           <View style={styles.gridItem}>
             <Text style={styles.gridLabel}>Energy</Text>
             <Text style={styles.gridValue}>
-              {latestPzem ? latestPzem.energy + "kWh" : "N/A"}
+              {latestPzem ? latestPzem.energy + "Wh" : "N/A"}
             </Text>
           </View>
         </View>

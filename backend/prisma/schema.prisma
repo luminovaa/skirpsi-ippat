@@ -19,7 +19,7 @@ model pzem {
   voltage      Float
   current      Float
   power        Float
-  // frequency    Float
+  frequency    Float
   power_factor Float    @map("pf")
   energy       Float
   va           Float

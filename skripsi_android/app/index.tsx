@@ -7,13 +7,37 @@ import PzemDashboard from "@/components/pzem/pzem-card";
 export default function HomeScreen() {
   const { colors } = useTheme();
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      paddingTop: 20,
+      backgroundColor: colors.background,
+    },
+    text: {
+      fontSize: 24,
+    },
+    header: {
+      paddingHorizontal: 20,
+      paddingVertical: 15,
+      marginBottom: 10,
+    },
+    headerTitle: {
+      fontSize: 28,
+      fontWeight: "bold",
+      color: colors.text,
+    },
+    contentContainer: {
+      paddingBottom: 30,
+    },
+  });
+  
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={styles.container}
       contentContainerStyle={styles.contentContainer}
     >
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>
+        <Text style={styles.headerTitle}>
           Home
         </Text>
       </View>
@@ -23,24 +47,3 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingTop: 20,
-  },
-  text: {
-    fontSize: 24,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    marginBottom: 10,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-  },
-  contentContainer: {
-    paddingBottom: 30,
-  },
-});
