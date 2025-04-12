@@ -16,13 +16,13 @@ const TemperatureDashboard = () => {
   >(null);
 
   const classifyTemperature = (temp: number) => {
-    if (temp < 20) {
-      return "Cold";
-    } else if (temp >= 20 && temp <= 27) {
-      return "Normal";
-    } else {
-      return "Hot";
-    }
+    if (temp <= 170) {
+      return "Light";
+  } else if (temp > 170 && temp < 240) {
+      return "Meidum";
+  } else {
+      return "Dark";
+  }
   };
 
   const wsUrl = process.env.EXPO_PUBLIC_WS_URL!;

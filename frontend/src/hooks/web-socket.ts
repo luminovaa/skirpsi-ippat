@@ -1,7 +1,5 @@
-import { useEffect, useRef } from 'react';
-
-// URL WebSocket tetap yang didefinisikan dalam hook
-const WEBSOCKET_URL = process.env.NEXT_PUBLIC_WS_URL;
+// src/hooks/useWebSocket.ts
+import { useEffect, useRef, useCallback } from 'react';
 
 type WebSocketMessage = {
   type: string;
@@ -15,64 +13,105 @@ type WebSocketCallbacks = {
   onError?: (error: Event) => void;
 };
 
-export const useWebSocket = (callbacks: WebSocketCallbacks) => {
+export const useWebSocket = (url: string, callbacks: WebSocketCallbacks) => {
   const socketRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
+  const shouldReconnectRef = useRef(true);
+
+  const connect = useCallback(() => {
+    if (!isMountedRef.current || !shouldReconnectRef.current) return;
+
+    // Close previous connection if exists
+    if (socketRef.current) {
+      socketRef.current.onopen = null;
+      socketRef.current.onclose = null;
+      socketRef.current.onerror = null;
+      socketRef.current.onmessage = null;
+      
+      if (socketRef.current.readyState === WebSocket.OPEN) {
+        socketRef.current.close(1000, 'Reconnecting');
+      }
+    }
+
+    console.log('Creating new WebSocket connection');
+    socketRef.current = new WebSocket(url);
+
+    const socket = socketRef.current;
+
+    socket.onopen = () => {
+      console.log('WebSocket connected');
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      callbacks.onOpen?.();
+    };
+
+    socket.onmessage = (event) => {
+      try {
+        const message: WebSocketMessage = JSON.parse(event.data);
+        callbacks.onMessage?.(message);
+      } catch (error) {
+        console.error('Error parsing WebSocket message:', error);
+      }
+    };
+
+    socket.onclose = (event) => {
+      console.log('WebSocket disconnected', event.code, event.reason);
+      callbacks.onClose?.();
+
+      if (isMountedRef.current && shouldReconnectRef.current) {
+        // Exponential backoff for reconnection
+        const delay = Math.min(1000 * Math.pow(2, 5), 30000); // Max 30 seconds
+        console.log(`Reconnecting in ${delay}ms...`);
+        reconnectTimerRef.current = setTimeout(connect, delay);
+      }
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      callbacks.onError?.(error);
+    };
+  }, [url, callbacks]);
 
   useEffect(() => {
-    // Pastikan kode hanya dijalankan di browser (client-side)
-    if (typeof window !== 'undefined') {
-      // Buat koneksi WebSocket dengan URL tetap
-      socketRef.current = new WebSocket(WEBSOCKET_URL!);
+    isMountedRef.current = true;
+    shouldReconnectRef.current = true;
+    connect();
 
-      // Setup event handlers
-      const socket = socketRef.current;
+    return () => {
+      isMountedRef.current = false;
+      shouldReconnectRef.current = false;
+      
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
 
-      socket.onopen = () => {
-        console.log('WebSocket connected');
-        callbacks.onOpen?.();
-      };
-
-      socket.onmessage = (event) => {
-        try {
-          const message: WebSocketMessage = JSON.parse(event.data);
-          callbacks.onMessage?.(message);
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+      if (socketRef.current) {
+        console.log('Cleaning up WebSocket');
+        socketRef.current.onopen = null;
+        socketRef.current.onclose = null;
+        socketRef.current.onerror = null;
+        socketRef.current.onmessage = null;
+        
+        if (socketRef.current.readyState === WebSocket.OPEN) {
+          socketRef.current.close(1000, 'Component unmounted');
         }
-      };
-
-      socket.onclose = () => {
-        console.log('WebSocket disconnected');
-        callbacks.onClose?.();
-      };
-
-      socket.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        callbacks.onError?.(error);
-      };
-
-      // Cleanup function
-      return () => {
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.close();
-        }
-      };
-    }
-    // Jika di server, tidak lakukan apa-apa
-    return undefined;
-  }, [callbacks]); // Hanya callbacks sebagai dependency
-
-  // Fungsi untuk mengirim pesan
-  const sendMessage = (message: any) => {
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify(message));
-    } else {
-      console.error('WebSocket is not connected');
-    }
-  };
+        
+        socketRef.current = null;
+      }
+    };
+  }, [connect]);
 
   return {
     socket: socketRef,
-    sendMessage
+    disconnect: () => {
+      shouldReconnectRef.current = false;
+      if (socketRef.current) {
+        socketRef.current.close(1000, 'Manual disconnect');
+      }
+    }
   };
 };

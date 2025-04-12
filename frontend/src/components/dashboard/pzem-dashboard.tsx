@@ -1,111 +1,158 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 import { pzem } from "@/lib/type";
 import { useWebSocket } from "@/hooks/web-socket";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const PzemDashboard = () => {
-  const { theme } = useTheme();
   const [latestPzem, setLatestPzem] = useState<pzem>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
-  // Colors based on theme (simplified from the original)
-  const colors = {
-    background: theme === "dark" ? "#1a1a1a" : "#f8f9fa",
-    card: theme === "dark" ? "#2a2a2a" : "#ffffff",
-    text: theme === "dark" ? "#ffffff" : "#000000",
-    textSecondary: theme === "dark" ? "#a0a0a0" : "#6c757d",
-    primary: "#007bff",
-    success: "#28a745",
-    danger: "#dc3545",
-  };
+  const wsUrl = process.env.NEXT_PUBLIC_WS_URL!;
 
-  // Gunakan hook useWebSocket
-  useWebSocket({
+  const socketCallbacks = useMemo(() => ({
     onOpen: () => {
+      console.log("WebSocket connection established");
       setIsConnected(true);
       setLoading(false);
+      setError(null);
     },
-    onMessage: (message) => {
-      if (message.type === 'latest_data') {
+    onMessage: (message: any) => {
+      if (message.type === "latest_data") {
         setLatestPzem(message.data.pzem);
       }
     },
     onClose: () => {
       setIsConnected(false);
-      setError('Disconnected from server');
+      setError("Disconnected from server. Reconnecting...");
     },
-    onError: () => {
-      setError('Connection error');
+    onError: (error: Event) => {
+      console.error("WebSocket error:", error);
+      setError("Connection error. Trying to reconnect...");
       setIsConnected(false);
-    }
-  });
+    },
+  }), []);
+  
+  useWebSocket(wsUrl, socketCallbacks);
 
+  
   if (loading) {
     return (
-      <div className="flex flex-1 justify-center items-center h-screen bg-background">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
+      <div className="w-full px-4">
+        <Card className="w-full max-w-4xl mx-auto dark:bg-zinc-900">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <Skeleton className="h-7 w-32" /> {/* Judul "Power Usage" */}
+            <Skeleton className="h-6 w-16 rounded-full" /> {/* Badge LIVE/OFFLINE */}
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <Card key={index}>
+                  <CardContent className="flex flex-col items-center justify-center p-3 sm:p-4">
+                    <Skeleton className="mb-1 h-4 w-16" /> {/* Label (Voltage, dll.) */}
+                    <Skeleton className="h-6 w-20" /> {/* Nilai (123V, dll.) */}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex flex-1 justify-center items-center h-screen bg-background">
-        <p className="text-red-500 text-lg">{error}</p>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-lg text-destructive">{error}</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-1 justify-center items-center p-5 min-h-screen" 
-         style={{ backgroundColor: colors.background }}>
-      <div className="w-full max-w-md rounded-lg p-4 shadow"
-           style={{ backgroundColor: colors.card }}>
-        
-        <div className="flex justify-between items-center mb-4 pb-2">
-          <h2 className="text-2xl" style={{ color: colors.text }}>Power Usage</h2>
-          <div className="px-2 py-1 rounded-full text-xs" 
-               style={{ backgroundColor: isConnected ? colors.success : colors.danger }}>
-            <span className="text-white">{isConnected ? 'LIVE' : 'OFFLINE'}</span>
+    <div className="w-full px-4">
+      <Card className="w-full max-w-4xl mx-auto dark:bg-zinc-900">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-xl sm:text-2xl">Power Usage</CardTitle>
+          <Badge
+            variant={isConnected ? "outline" : "destructive"}
+            className={isConnected ? "bg-green-500 text-white" : ""}
+          >
+            {isConnected ? "LIVE" : "OFFLINE"}
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center p-3 sm:p-4">
+                <span className="mb-1 text-xs sm:text-sm text-muted-foreground">
+                  Voltage
+                </span>
+                <span className="text-lg sm:text-xl font-bold text-foreground">
+                  {latestPzem?.voltage ? `${latestPzem.voltage}V` : "N/A"}
+                </span>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center p-3 sm:p-4">
+                <span className="mb-1 text-xs sm:text-sm text-muted-foreground">
+                  Current
+                </span>
+                <span className="text-lg sm:text-xl font-bold text-foreground">
+                  {latestPzem?.current ? `${latestPzem.current}A` : "N/A"}
+                </span>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center p-3 sm:p-4">
+                <span className="mb-1 text-xs sm:text-sm text-muted-foreground">
+                  Power
+                </span>
+                <span className="text-lg sm:text-xl font-bold text-foreground">
+                  {latestPzem?.power ? `${latestPzem.power}W` : "N/A"}
+                </span>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center p-3 sm:p-4">
+                <span className="mb-1 text-xs sm:text-sm text-muted-foreground">
+                  Energy
+                </span>
+                <span className="text-lg sm:text-xl font-bold text-foreground">
+                  {latestPzem?.energy ? `${latestPzem.energy}Wh` : "N/A"}
+                </span>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center p-3 sm:p-4">
+                <span className="mb-1 text-xs sm:text-sm text-muted-foreground">
+                  Frequency
+                </span>
+                <span className="text-lg sm:text-xl font-bold text-foreground">
+                  {latestPzem?.frequency ? `${latestPzem.frequency}Hz` : "N/A"}
+                </span>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center p-3 sm:p-4">
+                <span className="mb-1 text-xs sm:text-sm text-muted-foreground">
+                  Power Factor
+                </span>
+                <span className="text-lg sm:text-xl font-bold text-foreground">
+                  {latestPzem?.power_factor
+                    ? `${latestPzem.power_factor}`
+                    : "N/A"}
+                </span>
+              </CardContent>
+            </Card>
           </div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="flex flex-col items-center justify-center p-4 rounded-lg"
-               style={{ backgroundColor: `${colors.primary}10` }}>
-            <span className="text-sm mb-1" style={{ color: colors.textSecondary }}>Voltage</span>
-            <span className="text-xl font-bold" style={{ color: colors.text }}>
-              {latestPzem?.voltage ? `${latestPzem.voltage}V` : "N/A"}
-            </span>
-          </div>
-          <div className="flex flex-col items-center justify-center p-4 rounded-lg"
-               style={{ backgroundColor: `${colors.primary}10` }}>
-            <span className="text-sm mb-1" style={{ color: colors.textSecondary }}>Current</span>
-            <span className="text-xl font-bold" style={{ color: colors.text }}>
-              {latestPzem?.current ? `${latestPzem.current}A` : "N/A"}
-            </span>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4">
-          <div className="flex flex-col items-center justify-center p-4 rounded-lg"
-               style={{ backgroundColor: `${colors.primary}10` }}>
-            <span className="text-sm mb-1" style={{ color: colors.textSecondary }}>Power</span>
-            <span className="text-xl font-bold" style={{ color: colors.text }}>
-              {latestPzem?.power ? `${latestPzem.power}W` : "N/A"}
-            </span>
-          </div>
-          <div className="flex flex-col items-center justify-center p-4 rounded-lg"
-               style={{ backgroundColor: `${colors.primary}10` }}>
-            <span className="text-sm mb-1" style={{ color: colors.textSecondary }}>Energy</span>
-            <span className="text-xl font-bold" style={{ color: colors.text }}>
-              {latestPzem?.energy ? `${latestPzem.energy}Wh` : "N/A"}
-            </span>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
