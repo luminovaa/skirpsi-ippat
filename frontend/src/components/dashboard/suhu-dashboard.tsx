@@ -61,17 +61,17 @@ const SuhuDashboard = () => {
       <div className="w-full sm:justify-center">
         <Card className="w-full sm:w-80 md:w-96 dark:bg-zinc-900">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <Skeleton className="h-7 w-32" /> {/* Judul "Temperature" */}
-            <Skeleton className="h-6 w-16 rounded-full" /> {/* Badge LIVE/OFFLINE */}
+            <Skeleton className="h-7 w-32" /> 
+            <Skeleton className="h-6 w-16 rounded-full" /> 
           </CardHeader>
           <CardContent>
             <div className="flex flex-col pt-4 sm:pt-9 items-center">
-              <Skeleton className="h-12 w-24 sm:h-14 sm:w-28" /> {/* Suhu (XX °C) */}
-              <Skeleton className="mt-2 h-5 w-20" /> {/* Klasifikasi (Light/Medium/Dark) */}
+              <Skeleton className="h-12 w-24 sm:h-14 sm:w-28" /> 
+              <Skeleton className="mt-2 h-5 w-20" /> 
             </div>
             <div className="mt-6 sm:mt-10 flex justify-between">
-              <Skeleton className="h-5 w-16" /> {/* Min: XX °C */}
-              <Skeleton className="h-5 w-16" /> {/* Max: XX °C */}
+              <Skeleton className="h-7 w-16" /> 
+              <Skeleton className="h-5 w-16" /> 
             </div>
           </CardContent>
         </Card>

@@ -18,12 +18,15 @@ export async function sendLatestData(ws: any) {
             orderBy: { created_at: 'desc' }
         });
 
+        const rpmData = await prisma.rpm.findFirst({
+            orderBy: { created_at: 'desc' }
+        })
+
         // Ambil data Suhu terbaru
         const suhuData = await prisma.suhu.findFirst({
             orderBy: { created_at: 'desc' }
         });
 
-        // Get average, min, max temperature for today
         const suhuAvg = await prisma.suhu.aggregate({
             _avg: {
                 temperature: true
@@ -55,7 +58,8 @@ export async function sendLatestData(ws: any) {
                 data: {
                     pzem: pzemData,
                     suhu: suhuData,
-                    suhuAvg: result
+                    suhuAvg: result,
+                    rpm: rpmData
                 }
             }));
         }

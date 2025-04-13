@@ -15,9 +15,13 @@ export type suhu = {
     id: number,
     temperature: number,
     created_at: Date,
-
-    //today average
     average?: number,
     min?: number,
     max?: number
+}
+
+export type rpm = {
+    id: number,
+    rpm: number,
+    created_at: Date
 }

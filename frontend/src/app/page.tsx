@@ -12,6 +12,10 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import PzemDashboard from "@/components/dashboard/pzem-dashboard";
 import SuhuDashboard from "@/components/dashboard/suhu-dashboard";
+import TemperatureHistoryChart from "@/components/dashboard/suhu-50-latest";
+import RPMDashboard from "@/components/dashboard/rpm-dashboard";
+import PzemHistoryChart from "@/components/dashboard/pzem-50-latest";
+import RealTimeClock from "@/components/dashboard/clock";
 
 export default function DashboardPage() {
   return (
@@ -31,12 +35,31 @@ export default function DashboardPage() {
       </Breadcrumb>
       <Card className="rounded-lg border-none mt-6">
         <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row min-h-[calc(100vh-56px-64px-20px-24px-56px-48px)] gap-4">
-            <div className="sm:w1/2">
-              <PzemDashboard />
+          <div className="flex flex-col gap-4">
+            {/* First Row */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="">
+                <RealTimeClock />
+              </div>
+              <div className="">
+                <PzemDashboard />
+              </div>
+              <div className="">
+                <SuhuDashboard />
+              </div>
+              <div className="">
+                <RPMDashboard />
+              </div>
             </div>
-            <div className="sm:w1/2">
-              <SuhuDashboard />
+
+            {/* Second Row */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="">
+                <TemperatureHistoryChart />
+              </div>
+              <div className="">
+                <PzemHistoryChart />
+              </div>
             </div>
           </div>
         </CardContent>

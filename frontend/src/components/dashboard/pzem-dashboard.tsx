@@ -46,16 +46,16 @@ const PzemDashboard = () => {
       <div className="w-full px-4">
         <Card className="w-full max-w-4xl mx-auto dark:bg-zinc-900">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <Skeleton className="h-7 w-32" /> {/* Judul "Power Usage" */}
-            <Skeleton className="h-6 w-16 rounded-full" /> {/* Badge LIVE/OFFLINE */}
+            <Skeleton className="h-7 w-36" /> 
+            <Skeleton className="h-6 w-16 rounded-full" /> 
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
               {Array.from({ length: 6 }).map((_, index) => (
                 <Card key={index}>
                   <CardContent className="flex flex-col items-center justify-center p-3 sm:p-4">
-                    <Skeleton className="mb-1 h-4 w-16" /> {/* Label (Voltage, dll.) */}
-                    <Skeleton className="h-6 w-20" /> {/* Nilai (123V, dll.) */}
+                    <Skeleton className="mb-1 h-4 w-16" /> 
+                    <Skeleton className="h-8 w-20" /> 
                   </CardContent>
                 </Card>
               ))}
@@ -75,7 +75,7 @@ const PzemDashboard = () => {
   }
 
   return (
-    <div className="w-full px-4">
+    <div className="w-full ">
       <Card className="w-full max-w-4xl mx-auto dark:bg-zinc-900">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-xl sm:text-2xl">Power Usage</CardTitle>

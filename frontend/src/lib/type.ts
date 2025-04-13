@@ -21,3 +21,9 @@ export type suhu = {
     min?: number,
     max?: number
 }
+
+export type rpm = {
+    id: number,
+    rpm: number,
+    created_at: Date
+}
