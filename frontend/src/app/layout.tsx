@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import AdminPanelLayout from "@/components/admin-panel/admin-panel-layout";
 
 import "./globals.css";
+import { Toaster } from "@/components/ui/toaster";
 
 export default function RootLayout({
   children
@@ -15,6 +16,7 @@ export default function RootLayout({
       <body className={GeistSans.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AdminPanelLayout>{children}</AdminPanelLayout>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

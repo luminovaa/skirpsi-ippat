@@ -56,8 +56,8 @@ const RealTimeClock = () => {
   
   return (
     <Card className="w-full dark:bg-zinc-900">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-xl sm:text-2xl flex flex-col items-start gap-1">
+      <CardHeader className="pb-1 px-4 pt-5">
+      <CardTitle className="text-xl sm:text-2xl flex flex-col items-start gap-1">
           <div className="flex flex-col gap-1">
             <div className="text-xl font-semibold">
               {getDayName()}
@@ -68,7 +68,7 @@ const RealTimeClock = () => {
           </div>
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-4 pb-4">
         <span className="text-blue-500 font-mono text-xl">{formatTime()}</span>
       </CardContent>
     </Card>

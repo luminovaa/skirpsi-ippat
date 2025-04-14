@@ -49,7 +49,7 @@ const RPMDashboard = () => {
 
   const classifyRPM = (rpm: number) => {
     if (rpm <= 20) return "Low";
-    if (rpm <= 40 return "Medium";
+    if (rpm <= 40) return "Medium";
     return "High";
   };
 

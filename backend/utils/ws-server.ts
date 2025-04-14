@@ -4,12 +4,10 @@ import { setWebSocketServer as setSuhuWebSocketServer } from '../src/suhu/contro
 import { setWebSocketServer as setRPMWebSocketServer } from '../src/rpm/controller/post-rpm';
 import { sendLatestData } from '../src/with-ws/get-latest-data';
 import { sendPzemHistory, sendTemperatureHistory } from '../src/with-ws/get-suhu-50-latest';
-import { set } from 'date-fns';
 
 export const createWebSocketServer = (server: any) => {
     const wss = new WebSocketServer({ server });
 
-    // Set WebSocket server untuk kedua controller
     setPzemWebSocketServer(wss);
     setSuhuWebSocketServer(wss);
     setRPMWebSocketServer(wss);
@@ -18,19 +16,16 @@ export const createWebSocketServer = (server: any) => {
     wss.on('connection', (ws) => {
         console.log('New WebSocket connection');
 
-        // Kirim data terbaru saat client pertama kali connect
-        sendLatestData(ws);
+        // sendLatestData(ws);
 
-        // Set interval untuk mengirim data terbaru setiap beberapa detik
         const interval = setInterval(() => {
             sendLatestData(ws);
-        }, 1000); // Update setiap 1 detik
+        }, 1000); // iki gae update data setiap 1 detik
 
         ws.on('message', (message) => {
             try {
                 const data = JSON.parse(message.toString());
                 
-                // Handle berbagai tipe request
                 if (data.type === 'get_temperature_history') {
                     const limit = data.limit || 50; 
                     sendTemperatureHistory(ws, limit);

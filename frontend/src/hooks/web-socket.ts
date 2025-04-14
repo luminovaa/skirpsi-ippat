@@ -22,7 +22,6 @@ export const useWebSocket = (url: string, callbacks: WebSocketCallbacks) => {
   const connect = useCallback(() => {
     if (!isMountedRef.current || !shouldReconnectRef.current) return;
 
-    // Close previous connection if exists
     if (socketRef.current) {
       socketRef.current.onopen = null;
       socketRef.current.onclose = null;
@@ -62,8 +61,7 @@ export const useWebSocket = (url: string, callbacks: WebSocketCallbacks) => {
       callbacks.onClose?.();
 
       if (isMountedRef.current && shouldReconnectRef.current) {
-        // Exponential backoff for reconnection
-        const delay = Math.min(1000 * Math.pow(2, 5), 30000); // Max 30 seconds
+        const delay = Math.min(1000 * Math.pow(2, 5), 30000); // iiki maks lek data ga keceluk teko backend, dadi e ga nyambung makane rusak
         console.log(`Reconnecting in ${delay}ms...`);
         reconnectTimerRef.current = setTimeout(connect, delay);
       }

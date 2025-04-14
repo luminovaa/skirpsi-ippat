@@ -16,6 +16,8 @@ import TemperatureHistoryChart from "@/components/dashboard/suhu-50-latest";
 import RPMDashboard from "@/components/dashboard/rpm-dashboard";
 import PzemHistoryChart from "@/components/dashboard/pzem-50-latest";
 import RealTimeClock from "@/components/dashboard/clock";
+import { CoffeeImage } from "@/components/dashboard/coffee";
+import { DownloadExcel } from "@/components/dashboard/excel";
 
 export default function DashboardPage() {
   return (
@@ -38,8 +40,13 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-4">
             {/* First Row */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <div className="">
-                <RealTimeClock />
+              <div className="flex flex-col gap-2">
+                <div className="">  
+                  <RealTimeClock />
+                </div>
+                <div className="">
+                  <CoffeeImage />
+                </div>
               </div>
               <div className="">
                 <PzemDashboard />
@@ -49,6 +56,9 @@ export default function DashboardPage() {
               </div>
               <div className="">
                 <RPMDashboard />
+              </div>
+              <div className="">
+                <DownloadExcel />
               </div>
             </div>
 
