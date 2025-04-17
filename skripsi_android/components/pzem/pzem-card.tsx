@@ -6,7 +6,7 @@ import { useWebSocket } from "@/service/websocket";
 
 const PzemDashboard = () => {
   const { colors } = useTheme();
-  const [latestPzem, setLatestPzem] = useState<pzem>();
+  const [latestPzem, setLatestPzem] = useState<pzem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -22,6 +22,7 @@ const PzemDashboard = () => {
     onMessage: (message) => {
       if (message.type === 'latest_data') {
         setLatestPzem(message.data.pzem);
+        console.log(message.data.pzem);
       }
     },
     onClose: () => {
@@ -34,6 +35,7 @@ const PzemDashboard = () => {
       setIsConnected(false);
     }
   });
+  console.log(latestPzem)
 
   const styles = StyleSheet.create({
     container: {
@@ -143,13 +145,13 @@ const PzemDashboard = () => {
           <View style={styles.gridItem}>
             <Text style={styles.gridLabel}>Voltage</Text>
             <Text style={styles.gridValue}>
-              {latestPzem!.voltage ? latestPzem!.voltage + "V" : "N/A"}
+              {latestPzem?.voltage ? latestPzem.voltage + "V" : "N/A"}
             </Text>
           </View>
           <View style={styles.gridItem}>
             <Text style={styles.gridLabel}>Current</Text>
             <Text style={styles.gridValue}>
-              {latestPzem!.current ? latestPzem!.current + "A" : "N/A"}
+              {latestPzem?.current ? latestPzem.current + "A" : "N/A"}
             </Text>
           </View>
         </View>
@@ -158,7 +160,7 @@ const PzemDashboard = () => {
           <View style={styles.gridItem}>
             <Text style={styles.gridLabel}>Power</Text>
             <Text style={styles.gridValue}>
-              {latestPzem!.power ? latestPzem!.power + "W" : "N/A"}
+              {latestPzem?.power ? latestPzem.power + "W" : "N/A"}
             </Text>
           </View>
           <View style={styles.gridItem}>

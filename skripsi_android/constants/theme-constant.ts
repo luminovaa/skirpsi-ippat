@@ -7,7 +7,8 @@ export const themes: { [key: string] : {
   border: string,
   card: string,
   danger: string,
-  success: string
+  success: string,
+  inner: string
 }} = {
   light: {
     background: '#F9F9F9',
@@ -19,6 +20,7 @@ export const themes: { [key: string] : {
     card: '#FFFFFF',
     danger: '#E74C3C',
     success: '#27AE60',
+    inner: '#FFF',
   },
   dark: {
     background: '#1A1D23',
@@ -30,5 +32,6 @@ export const themes: { [key: string] : {
     card: '#242526',
     danger: '#E74C3C',
     success: '#27AE60',
+    inner: '#242526'
   },
 };
