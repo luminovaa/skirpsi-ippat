@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "skripsi_android",
+    "name": "The Skripsi",
     "slug": "skripsi_android",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -15,7 +15,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.karim064.skripsi_android"
     },
     "web": {
       "bundler": "metro",
