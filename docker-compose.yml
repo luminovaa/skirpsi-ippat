@@ -1,0 +1,51 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: backend
+    restart: always
+    env_file:
+      - ./backend/.env
+    ports:
+      - "9056:9056"
+    networks:
+      - ippat-net
+    depends_on:
+      - mysql 
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend
+    restart: always
+    env_file:
+      - ./frontend/.env.production
+    expose:
+      - "4050:4050"
+    depends_on:
+      - backend
+    networks:
+      - ippat-net
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: polinema
+      MYSQL_DATABASE: ippat_db
+      MYSQL_USER: ippat_user
+      MYSQL_PASSWORD: polinema
+    volumes:
+      - mysql_data:/var/lib/mysql  
+    networks:
+      - ippat-net
+    ports:
+      - "8574:8574" 
+
+networks:
+  ippat-net:
+    driver: bridge
+
+volumes:
+  mysql_data:  

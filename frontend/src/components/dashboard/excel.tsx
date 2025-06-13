@@ -24,8 +24,11 @@ import { useToast } from "@/hooks/use-toast";
 export const DownloadExcel = () => {
   const [filterType, setFilterType] = useState<string>("hour");
   const [hour, setHour] = useState<string>("");
+  const [minute, setMinute] = useState<string>("");
   const [startHour, setStartHour] = useState<string>("");
   const [endHour, setEndHour] = useState<string>("");
+  const [startMinute, setStartMinute] = useState<string>("");
+  const [endMinute, setEndMinute] = useState<string>("");
   const [date, setDate] = useState<Date | undefined>(undefined);
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
@@ -36,20 +39,40 @@ export const DownloadExcel = () => {
     setIsLoading(true);
     try {
       let params: any = {};
-      let filename = "Ahhh_data.xlsx";
+      let filename = "Analisis.xlsx";
 
       switch (filterType) {
         case "hour":
           if (!hour) throw new Error("Please select an hour");
           params.hour = hour;
-          filename = `Ahhh_hour_${hour}.xlsx`;
+          if (minute) {
+            params.minute = minute;
+            filename = `Analisis_${hour}-${minute.padStart(2, "0")}.xlsx`;
+          } else {
+            filename = `Analisis_hour_${hour}.xlsx`;
+          }
           break;
         case "hourRange":
           if (!startHour || !endHour)
             throw new Error("Please select start and end hours");
           params.startHour = startHour;
           params.endHour = endHour;
-          filename = `Ahhh_${startHour}-${endHour}.xlsx`;
+          
+          // Jika ada filter menit untuk hour range
+          if (startMinute && endMinute) {
+            // Untuk hour range dengan minute range, kita perlu jam yang sama
+            if (startHour !== endHour) {
+              throw new Error("Minute range can only be used with the same hour");
+            }
+            params.hour = startHour; // Override dengan hour yang sama
+            params.startMinute = startMinute;
+            params.endMinute = endMinute;
+            delete params.startHour;
+            delete params.endHour;
+            filename = `Analisis_${startHour}-${startMinute.padStart(2, "0")}_to_${startHour}-${endMinute.padStart(2, "0")}.xlsx`;
+          } else {
+            filename = `Analisis_${startHour}-${endHour}.xlsx`;
+          }
           break;
         case "date":
           if (!date) throw new Error("Please select a date");
@@ -107,55 +130,120 @@ export const DownloadExcel = () => {
     switch (filterType) {
       case "hour":
         return (
-          <div className="grid gap-2">
-            <Label htmlFor="hour">Hour</Label>
-            <Select value={hour} onValueChange={setHour}>
-              <SelectTrigger id="hour">
-                <SelectValue placeholder="Select hour" />
-              </SelectTrigger>
-              <SelectContent>
-                {Array.from({ length: 24 }, (_, i) => (
-                  <SelectItem key={i} value={i.toString()}>
-                    {i.toString().padStart(2, "0")}:00
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="hour">Hour</Label>
+              <Select value={hour} onValueChange={setHour}>
+                <SelectTrigger id="hour">
+                  <SelectValue placeholder="Select hour" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <SelectItem key={i} value={i.toString()}>
+                      {i.toString().padStart(2, "0")}:00
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {/* Optional minute filter */}
+            <div className="grid gap-2">
+              <Label htmlFor="minute">Minute (Optional)</Label>
+              <Select value={minute} onValueChange={setMinute}>
+                <SelectTrigger id="minute">
+                  <SelectValue placeholder="Select minute (all minutes if empty)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All minutes</SelectItem>
+                  {Array.from({ length: 60 }, (_, i) => (
+                    <SelectItem key={i} value={i.toString()}>
+                      {i.toString().padStart(2, "0")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         );
       case "hourRange":
         return (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="startHour">Start Hour</Label>
-              <Select value={startHour} onValueChange={setStartHour}>
-                <SelectTrigger id="startHour">
-                  <SelectValue placeholder="Select start hour" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 24 }, (_, i) => (
-                    <SelectItem key={i} value={i.toString()}>
-                      {i.toString().padStart(2, "0")}:00
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="grid gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="startHour">Start Hour</Label>
+                <Select value={startHour} onValueChange={setStartHour}>
+                  <SelectTrigger id="startHour">
+                    <SelectValue placeholder="Select start hour" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <SelectItem key={i} value={i.toString()}>
+                        {i.toString().padStart(2, "0")}:00
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="endHour">End Hour</Label>
+                <Select value={endHour} onValueChange={setEndHour}>
+                  <SelectTrigger id="endHour">
+                    <SelectValue placeholder="Select end hour" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <SelectItem key={i} value={i.toString()}>
+                        {i.toString().padStart(2, "0")}:00
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="endHour">End Hour</Label>
-              <Select value={endHour} onValueChange={setEndHour}>
-                <SelectTrigger id="endHour">
-                  <SelectValue placeholder="Select end hour" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 24 }, (_, i) => (
-                    <SelectItem key={i} value={i.toString()}>
-                      {i.toString().padStart(2, "0")}:00
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            
+            {/* Minute range - only show if same hour selected */}
+            {startHour && endHour && startHour === endHour && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="startMinute">Start Minute (Optional)</Label>
+                  <Select value={startMinute} onValueChange={setStartMinute}>
+                    <SelectTrigger id="startMinute">
+                      <SelectValue placeholder="Select start minute" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 60 }, (_, i) => (
+                        <SelectItem key={i} value={i.toString()}>
+                          {i.toString().padStart(2, "0")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="endMinute">End Minute (Optional)</Label>
+                  <Select value={endMinute} onValueChange={setEndMinute}>
+                    <SelectTrigger id="endMinute">
+                      <SelectValue placeholder="Select end minute" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 60 }, (_, i) => (
+                        <SelectItem key={i} value={i.toString()}>
+                          {i.toString().padStart(2, "0")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+            
+            {/* Info message for minute range */}
+            {startHour && endHour && startHour !== endHour && (
+              <div className="text-sm text-muted-foreground bg-muted p-2 rounded">
+                💡 Minute range is only available when start and end hour are the same
+              </div>
+            )}
           </div>
         );
       case "date":
@@ -259,8 +347,11 @@ export const DownloadExcel = () => {
               onValueChange={(value) => {
                 setFilterType(value);
                 setHour("");
+                setMinute("");
                 setStartHour("");
                 setEndHour("");
+                setStartMinute("");
+                setEndMinute("");
                 setDate(undefined);
                 setStartDate(undefined);
                 setEndDate(undefined);

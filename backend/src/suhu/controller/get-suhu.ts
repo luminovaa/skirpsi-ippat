@@ -83,13 +83,61 @@ const getLatestSuhu = asyncHandler(async (req: Request, res: Response<any, Recor
 
 const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   try {
-    const { hour, startHour, endHour, date, startDate, endDate } = req.query;
+    const { hour, startHour, endHour, minute, startMinute, endMinute, date, startDate, endDate } = req.query;
     const timeZone = "Asia/Jakarta";
     let whereClause: any = {};
 
     const now = toZonedTime(new Date(), timeZone);
 
-    if (hour) {
+    // Filter berdasarkan menit spesifik (dalam jam tertentu)
+    if (hour && minute) {
+      const parsedHour = parseInt(hour as string);
+      const parsedMinute = parseInt(minute as string);
+      if (
+        isNaN(parsedHour) || parsedHour < 0 || parsedHour > 23 ||
+        isNaN(parsedMinute) || parsedMinute < 0 || parsedMinute > 59
+      ) {
+        responseMessage(res, 400, "Invalid hour or minute parameter");
+        return;
+      }
+      const startOfMinute = new Date(now);
+      startOfMinute.setHours(parsedHour, parsedMinute, 0, 0);
+      const endOfMinute = new Date(now);
+      endOfMinute.setHours(parsedHour, parsedMinute, 59, 999);
+
+      whereClause.created_at = {
+        gte: startOfMinute,
+        lte: endOfMinute,
+      };
+    }
+
+    // Filter berdasarkan range menit (dalam jam tertentu)
+    else if (hour && startMinute && endMinute) {
+      const parsedHour = parseInt(hour as string);
+      const parsedStartMinute = parseInt(startMinute as string);
+      const parsedEndMinute = parseInt(endMinute as string);
+      if (
+        isNaN(parsedHour) || parsedHour < 0 || parsedHour > 23 ||
+        isNaN(parsedStartMinute) || parsedStartMinute < 0 || parsedStartMinute > 59 ||
+        isNaN(parsedEndMinute) || parsedEndMinute < 0 || parsedEndMinute > 59 ||
+        parsedStartMinute > parsedEndMinute
+      ) {
+        responseMessage(res, 400, "Invalid hour or minute range parameters");
+        return;
+      }
+      const startOfRange = new Date(now);
+      startOfRange.setHours(parsedHour, parsedStartMinute, 0, 0);
+      const endOfRange = new Date(now);
+      endOfRange.setHours(parsedHour, parsedEndMinute, 59, 999);
+
+      whereClause.created_at = {
+        gte: startOfRange,
+        lte: endOfRange,
+      };
+    }
+
+    // Filter berdasarkan jam spesifik
+    else if (hour) {
       const parsedHour = parseInt(hour as string);
       if (isNaN(parsedHour) || parsedHour < 0 || parsedHour > 23) {
         responseMessage(res, 400, "Invalid hour parameter");
@@ -106,6 +154,7 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
       };
     }
 
+    // Filter berdasarkan range jam
     else if (startHour && endHour) {
       const parsedStartHour = parseInt(startHour as string);
       const parsedEndHour = parseInt(endHour as string);
@@ -132,6 +181,7 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
       };
     }
 
+    // Filter berdasarkan tanggal spesifik
     else if (date) {
       const parsedDate = parseISO(date as string);
       if (isNaN(parsedDate.getTime())) {
@@ -147,6 +197,7 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
       };
     }
 
+    // Filter berdasarkan range tanggal
     else if (startDate && endDate) {
       const parsedStartDate = parseISO(startDate as string);
       const parsedEndDate = parseISO(endDate as string);
@@ -287,7 +338,5 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
     responseMessage(res, 500, "Terjadi kesalahan pada server");
   }
 });
-
-export default downloadSuhuExcel;
 
 export { getAllSuhu, getAverageSuhuToday, getLatestSuhu, downloadSuhuExcel };

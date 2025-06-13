@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { Server } from 'http';
+import http from 'http';
 import routes from './routes';
 import { createWebSocketServer } from './utils/ws-server';
 
@@ -11,6 +11,9 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
+routes(app);
+
+// Error handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error(err.stack);
   res.status(500).json({
@@ -19,35 +22,23 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-routes(app);
+const PORT = parseInt(process.env.PORT || '3000', 10);
 
-const PORT: number = parseInt(process.env.PORT || '3000');
+const httpServer = http.createServer(app);
+createWebSocketServer(httpServer);
 
-const server: Server = app.listen(PORT, () => {
-  const address = server.address();
-
-  if (address) {
-    if (typeof address === 'string') {
-      console.log(`Server is running on socket: ${address}`);
-    } else {
-      console.log(`Server is running on port: ${address.port}`);
-    }
-  } else {
-    console.log('Server is running');
-  }
+httpServer.listen(PORT, () => {
+  console.log(`Server is running on port: ${PORT}`);
 });
 
-// Buat WebSocket server
-createWebSocketServer(server);
-
-server.on('error', (error: Error) => {
+httpServer.on('error', (error: Error) => {
   console.error('Server startup error:', error);
   process.exit(1);
 });
 
 process.on('SIGTERM', () => {
   console.log('SIGTERM received. Shutting down gracefully');
-  server.close(() => {
+  httpServer.close(() => {
     console.log('Process terminated');
     process.exit(0);
   });

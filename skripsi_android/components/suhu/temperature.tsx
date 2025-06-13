@@ -25,7 +25,8 @@ const TemperatureDashboard = () => {
   }
   };
 
-  const wsUrl = process.env.EXPO_PUBLIC_WS_URL!;
+  const wsUrl = 'ws://192.168.90.191:9056';
+;
 
   // Gunakan hook WebSocket
   useWebSocket(wsUrl, {
@@ -37,6 +38,7 @@ const TemperatureDashboard = () => {
       if (message.type === "latest_data") {
         setLatestSuhu(message.data.suhu);
         setTodayStats(message.data.suhuAvg);
+        console.log(message.data.suhu);
         const currentTemp = message.data.suhu.temperature;
         setTemperatureClassification(classifyTemperature(currentTemp));
       }
