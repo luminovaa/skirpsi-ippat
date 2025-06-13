@@ -10,7 +10,6 @@ RUN yarn global add ts-node
 COPY prisma ./prisma
 COPY .env .      
 
-RUN npx prisma db push
 RUN npx prisma generate
 
 COPY . .
