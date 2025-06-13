@@ -2,7 +2,7 @@ services:
   backend:
     build:
       context: ./backend
-    container_name: backend
+    container_name: backend-ippat
     restart: always
     env_file:
       - ./backend/.env
@@ -16,7 +16,7 @@ services:
   frontend:
     build:
       context: ./frontend
-    container_name: frontend
+    container_name: frontend-ippat
     restart: always
     env_file:
       - ./frontend/.env.production
@@ -29,7 +29,7 @@ services:
 
   mysql:
     image: mysql:8.0
-    container_name: mysql
+    container_name: mysql-ippat
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: polinema
