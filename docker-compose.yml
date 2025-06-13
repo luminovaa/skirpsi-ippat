@@ -20,8 +20,8 @@ services:
     restart: always
     env_file:
       - ./frontend/.env.production
-    ports::
-      - "4050:4050"
+    ports:
+      - "400:4050"
     depends_on:
       - backend
     networks:
