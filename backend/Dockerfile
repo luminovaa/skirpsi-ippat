@@ -16,6 +16,8 @@ RUN yarn global add ts-node
 COPY prisma ./prisma
 
 # Generate Prisma client
+
+RUN npx prisma db push
 RUN npx prisma generate
 
 # Copy the rest of the application
