@@ -11,7 +11,8 @@ services:
     networks:
       - ippat-net
     depends_on:
-      - mysql 
+      - mysql:
+          condition: service_healthy 
 
   frontend:
     build:
