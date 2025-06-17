@@ -43,6 +43,7 @@ services:
 
     volumes:
       - mysql_data:/var/lib/mysql  
+      - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
     networks:
       - ippat-net
     ports:
