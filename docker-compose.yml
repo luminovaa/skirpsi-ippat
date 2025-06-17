@@ -33,12 +33,14 @@ services:
   mysql:
     image: mysql:8.0
     container_name: mysql-ippat
-    restart: always
+    restart: always    
     environment:
       MYSQL_ROOT_PASSWORD: polinema
       MYSQL_DATABASE: ippat_db
       MYSQL_USER: ippat_user
       MYSQL_PASSWORD: polinema
+      TZ: Asia/Jakarta
+
     volumes:
       - mysql_data:/var/lib/mysql  
     networks:
