@@ -89,8 +89,8 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
 
     const now = toZonedTime(new Date(), timeZone);
 
-    // Filter berdasarkan menit spesifik (dalam jam tertentu) - TODAY
-    if (hour && minute && !startMinute && !endMinute) {
+    // Filter berdasarkan menit spesifik (dalam jam tertentu)
+    if (hour && minute) {
       const parsedHour = parseInt(hour as string);
       const parsedMinute = parseInt(minute as string);
       if (
@@ -111,7 +111,7 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
       };
     }
 
-    // Filter berdasarkan range menit (dalam jam tertentu) - TODAY
+    // Filter berdasarkan range menit (dalam jam tertentu)
     else if (hour && startMinute && endMinute) {
       const parsedHour = parseInt(hour as string);
       const parsedStartMinute = parseInt(startMinute as string);
@@ -136,8 +136,8 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
       };
     }
 
-    // Filter berdasarkan jam spesifik - TODAY
-    else if (hour && !startHour && !endHour) {
+    // Filter berdasarkan jam spesifik
+    else if (hour) {
       const parsedHour = parseInt(hour as string);
       if (isNaN(parsedHour) || parsedHour < 0 || parsedHour > 23) {
         responseMessage(res, 400, "Invalid hour parameter");
@@ -154,7 +154,7 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
       };
     }
 
-    // Filter berdasarkan range jam - TODAY
+    // Filter berdasarkan range jam
     else if (startHour && endHour) {
       const parsedStartHour = parseInt(startHour as string);
       const parsedEndHour = parseInt(endHour as string);
@@ -170,43 +170,15 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
         responseMessage(res, 400, "Invalid hour range parameters");
         return;
       }
-      
-      // Jika range jam melewati tengah malam (contoh: 22:00 - 02:00)
-      if (parsedStartHour > parsedEndHour) {
-        // Split menjadi dua query: dari startHour ke 23:59 dan dari 00:00 ke endHour
-        const startOfRange1 = new Date(now);
-        startOfRange1.setHours(parsedStartHour, 0, 0, 0);
-        const endOfRange1 = new Date(now);
-        endOfRange1.setHours(23, 59, 59, 999);
-        
-        const startOfRange2 = new Date(now);
-        startOfRange2.setHours(0, 0, 0, 0);
-        const endOfRange2 = new Date(now);
-        endOfRange2.setHours(parsedEndHour, 59, 59, 999);
+      const startOfRange = new Date(now);
+      startOfRange.setHours(parsedStartHour, 0, 0, 0);
+      const endOfRange = new Date(now);
+      endOfRange.setHours(parsedEndHour, 59, 59, 999);
 
-        whereClause.created_at = {
-          OR: [
-            {
-              gte: startOfRange1,
-              lte: endOfRange1,
-            },
-            {
-              gte: startOfRange2,
-              lte: endOfRange2,
-            }
-          ]
-        };
-      } else {
-        const startOfRange = new Date(now);
-        startOfRange.setHours(parsedStartHour, 0, 0, 0);
-        const endOfRange = new Date(now);
-        endOfRange.setHours(parsedEndHour, 59, 59, 999);
-
-        whereClause.created_at = {
-          gte: startOfRange,
-          lte: endOfRange,
-        };
-      }
+      whereClause.created_at = {
+        gte: startOfRange,
+        lte: endOfRange,
+      };
     }
 
     // Filter berdasarkan tanggal spesifik
@@ -249,9 +221,6 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
       return;
     }
 
-    // Debug: Log the whereClause untuk debugging
-    console.log("WHERE CLAUSE:", JSON.stringify(whereClause, null, 2));
-
     const [suhuData, pzemData, rpmData] = await Promise.all([
       prisma.suhu.findMany({
         where: whereClause,
@@ -291,9 +260,6 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
         },
       }),
     ]);
-
-    // Debug: Log jumlah data yang ditemukan
-    console.log(`Found data - Suhu: ${suhuData.length}, PZEM: ${pzemData.length}, RPM: ${rpmData.length}`);
 
     if (suhuData.length === 0 && pzemData.length === 0 && rpmData.length === 0) {
       responseMessage(res, 404, "No data found for the specified filters");
@@ -372,4 +338,5 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
     responseMessage(res, 500, "Terjadi kesalahan pada server");
   }
 });
+
 export { getAllSuhu, getAverageSuhuToday, getLatestSuhu, downloadSuhuExcel };

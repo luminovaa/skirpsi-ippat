@@ -82,14 +82,14 @@ export const DownloadExcel = () => {
         case "date":
           if (!date) throw new Error("Please select a date");
           params.date = format(date, "yyyy-MM-dd");
-          filename = `Ahhh_${format(date, "yyyy-MM-dd")}.xlsx`;
+          filename = `Analisis_${format(date, "yyyy-MM-dd")}.xlsx`;
           break;
         case "dateRange":
           if (!startDate || !endDate)
             throw new Error("Please select start and end dates");
           params.startDate = format(startDate, "yyyy-MM-dd");
           params.endDate = format(endDate, "yyyy-MM-dd");
-          filename = `Ahhh_${format(startDate, "yyyy-MM-dd")}_to_${format(
+          filename = `Analisis_${format(startDate, "yyyy-MM-dd")}_to_${format(
             endDate,
             "yyyy-MM-dd"
           )}.xlsx`;
