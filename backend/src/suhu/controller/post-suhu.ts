@@ -14,6 +14,8 @@ export const setWebSocketServer = (server: WebSocketServer) => {
 export const postSuhu = asyncHandler(async (req: Request, res: Response) => {
     try {
         const { temperature } = req.body;
+        
+        await prisma.$executeRaw`SET time_zone = '+07:00';`;
 
         const suhu = await prisma.suhu.create({
             data: { temperature }
