@@ -16,9 +16,8 @@ export const postSuhu = asyncHandler(async (req: Request, res: Response) => {
         const { temperature } = req.body;
 
         const suhu = await prisma.suhu.create({
-            data: { temperature }
+            data: { temperature, created_at: new Date() }
         });
-
         if (wss) {
             wss.clients.forEach((client) => {
                 if (client.readyState === WebSocket.OPEN) {
