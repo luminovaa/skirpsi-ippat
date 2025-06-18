@@ -29,7 +29,7 @@ model pzem {
 model suhu {
   id          Int   @id @default(autoincrement())
   temperature Float
-  created_at   DateTime @default(now())
+  created_at  DateTime @default(now()) @db.Timestamp(0)
 }
 
 
