@@ -11,7 +11,7 @@ COPY prisma ./prisma
 COPY .env .      
 
 RUN npx prisma generate
-RUN npx prisma db push
+# RUN npx prisma db push
 
 COPY . .
 
