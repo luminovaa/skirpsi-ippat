@@ -23,7 +23,7 @@ model pzem {
   energy       Float
   va           Float
   var          Float
-  created_at   DateTime @default(now())
+  created_at   DateTime
 }
 
 model suhu {

@@ -276,7 +276,7 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
     ];
     suhuData.forEach((entry) => {
       suhuWorksheet.addRow({
-        date: format(toZonedTime(entry.created_at, timeZone), "dd-MM-yyyy HH:mm:ss"),
+        date: format(toZonedTime(entry.created_at, timeZone), "dd-MM-yyyy HH:mm:ss.SSS"),
         temperature: entry.temperature,
       });
     });
@@ -298,7 +298,7 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
     ];
     pzemData.forEach((entry) => {
       pzemWorksheet.addRow({
-        date: format(toZonedTime(entry.created_at, timeZone), "dd-MM-yyyy HH:mm:ss"),
+        date: format(toZonedTime(entry.created_at, timeZone), "dd-MM-yyyy HH:mm:ss.SSS"),
         voltage: entry.voltage,
         current: entry.current,
         power: entry.power,
@@ -320,7 +320,7 @@ const downloadSuhuExcel = asyncHandler(async (req: Request, res: Response): Prom
     ];
     rpmData.forEach((entry) => {
       rpmWorksheet.addRow({
-        date: format(toZonedTime(entry.created_at, timeZone), "dd-MM-yyyy HH:mm:ss"),
+        date: format(toZonedTime(entry.created_at, timeZone), "dd-MM-yyyy HH:mm:ss.SSS"),
         rpm: entry.rpm,
       });
     });

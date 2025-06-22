@@ -85,7 +85,9 @@ const TemperatureHistoryChart = () => {
       return `${date.getHours()}:${String(date.getMinutes()).padStart(
         2,
         "0"
-      )}:${String(date.getSeconds()).padStart(2, "0")}`;
+      )}:${String(date.getSeconds()).padStart(2, "0")}.${String(
+        date.getMilliseconds()
+      ).padStart(3, "0")}`;
     }),
     datasets: [
       {
@@ -188,7 +190,7 @@ const TemperatureHistoryChart = () => {
                 className="absolute bottom-0 left-0 h-1/2 w-full"
                 style={{
                   left: `${index * 10}%`,
-                  width: '10%',
+                  width: "10%",
                   height: `${Math.random() * 100}%`,
                 }}
               />
