@@ -8,7 +8,14 @@ import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const PzemDashboard = () => {
-  const [latestPzem, setLatestPzem] = useState<pzem>();
+  const [latestPzem, setLatestPzem] = useState<pzem>({
+    voltage: 0,
+    current: 0,
+    power: 0,
+    energy: 0,
+    frequency: 0,
+    power_factor: 0
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -24,7 +31,14 @@ const PzemDashboard = () => {
     },
     onMessage: (message: any) => {
       if (message.type === "latest_data") {
-        setLatestPzem(message.data.pzem);
+        setLatestPzem(message.data.pzem || {
+          voltage: 0,
+          current: 0,
+          power: 0,
+          energy: 0,
+          frequency: 0,
+          power_factor: 0
+        });
       }
     },
     onClose: () => {
@@ -40,7 +54,6 @@ const PzemDashboard = () => {
   
   useWebSocket(wsUrl, socketCallbacks);
 
-  
   if (loading) {
     return (
       <div className="w-full px-4">
@@ -75,7 +88,7 @@ const PzemDashboard = () => {
   }
 
   return (
-    <div className="w-full ">
+    <div className="w-full">
       <Card className="w-full max-w-4xl mx-auto dark:bg-zinc-900">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-xl sm:text-2xl">Power Usage</CardTitle>
@@ -94,7 +107,7 @@ const PzemDashboard = () => {
                   Voltage
                 </span>
                 <span className="text-lg sm:text-xl font-bold text-foreground">
-                  {latestPzem?.voltage ? `${latestPzem.voltage}V` : "N/A"}
+                  {latestPzem.voltage}V
                 </span>
               </CardContent>
             </Card>
@@ -104,7 +117,7 @@ const PzemDashboard = () => {
                   Current
                 </span>
                 <span className="text-lg sm:text-xl font-bold text-foreground">
-                  {latestPzem?.current ? `${latestPzem.current}A` : "N/A"}
+                  {latestPzem.current}A
                 </span>
               </CardContent>
             </Card>
@@ -114,7 +127,7 @@ const PzemDashboard = () => {
                   Power
                 </span>
                 <span className="text-lg sm:text-xl font-bold text-foreground">
-                  {latestPzem?.power ? `${latestPzem.power}W` : "N/A"}
+                  {latestPzem.power}W
                 </span>
               </CardContent>
             </Card>
@@ -124,7 +137,7 @@ const PzemDashboard = () => {
                   Energy
                 </span>
                 <span className="text-lg sm:text-xl font-bold text-foreground">
-                  {latestPzem?.energy ? `${latestPzem.energy}Wh` : "N/A"}
+                  {latestPzem.energy}Wh
                 </span>
               </CardContent>
             </Card>
@@ -134,7 +147,7 @@ const PzemDashboard = () => {
                   Frequency
                 </span>
                 <span className="text-lg sm:text-xl font-bold text-foreground">
-                  {latestPzem?.frequency ? `${latestPzem.frequency}Hz` : "N/A"}
+                  {latestPzem.frequency}Hz
                 </span>
               </CardContent>
             </Card>
@@ -144,9 +157,7 @@ const PzemDashboard = () => {
                   Power Factor
                 </span>
                 <span className="text-lg sm:text-xl font-bold text-foreground">
-                  {latestPzem?.power_factor
-                    ? `${latestPzem.power_factor}`
-                    : "N/A"}
+                  {latestPzem.power_factor}
                 </span>
               </CardContent>
             </Card>
