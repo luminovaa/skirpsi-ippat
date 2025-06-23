@@ -3,7 +3,7 @@ import { WebSocketServer } from "ws";
 
 const prisma = new PrismaClient();
 const CHECK_INTERVAL = 1000; // cek saben 1 detik
-const TIMEOUT_THRESHOLD = 2000; // batas 2 detik
+const TIMEOUT_THRESHOLD = 10000; // batas 2 detik
 
 interface MonitorConfig {
   model: 'rpm' | 'suhu' | 'pzem';
