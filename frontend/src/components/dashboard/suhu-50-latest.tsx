@@ -11,7 +11,7 @@ import {
   Filler,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTheme } from "next-themes";
@@ -46,21 +46,19 @@ const TemperatureHistoryChart = () => {
         setIsConnected(true);
         setLoading(false);
         setError(null);
-        // Minta data awal
+        // Request all historical data
         socket.current?.send(
-          JSON.stringify({ type: "get_temperature_history", limit: 50 })
+          JSON.stringify({ type: "get_temperature_history" })
         );
       },
       onMessage: (message: any) => {
         console.log("Received message:", message);
         if (message.type === "temperature_history") {
-          setTemperatureHistory(message.data);
+          setTemperatureHistory(message.data); // Set all historical data
         } else if (message.type === "new_temperature") {
-          setTemperatureHistory((prev) => [...prev, message.data].slice(-50));
+          setTemperatureHistory((prev) => [...prev, message.data]); // Append new data
         } else if (message.type === "latest_data") {
-          setTemperatureHistory((prev) =>
-            [...prev, message.data.suhu].slice(-50)
-          );
+          setTemperatureHistory((prev) => [...prev, message.data.suhu]); // Append latest data
         }
       },
       onClose: () => {
@@ -82,12 +80,7 @@ const TemperatureHistoryChart = () => {
   const data = {
     labels: temperatureHistory.map((item) => {
       const date = new Date(item.created_at);
-      return `${date.getHours()}:${String(date.getMinutes()).padStart(
-        2,
-        "0"
-      )}:${String(date.getSeconds()).padStart(2, "0")}.${String(
-        date.getMilliseconds()
-      ).padStart(3, "0")}`;
+      return `${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}.${String(date.getMilliseconds()).padStart(3, "0")}`;
     }),
     datasets: [
       {
@@ -118,9 +111,7 @@ const TemperatureHistoryChart = () => {
         labels: {
           color: theme === "dark" ? "#e4e4e7" : "#27272a",
           boxWidth: 12,
-          font: {
-            size: 12,
-          },
+          font: { size: 12 },
         },
       },
       tooltip: {
@@ -145,9 +136,9 @@ const TemperatureHistoryChart = () => {
         },
         ticks: {
           color: theme === "dark" ? "#e4e4e7" : "#27272a",
-          font: {
-            size: 10,
-          },
+          font: { size: 10 },
+          maxTicksLimit: 20, // Limit the number of x-axis ticks to avoid clutter
+          autoSkip: true, // Automatically skip labels to prevent overlap
         },
       },
       y: {
@@ -160,9 +151,7 @@ const TemperatureHistoryChart = () => {
         },
         ticks: {
           color: theme === "dark" ? "#e4e4e7" : "#27272a",
-          font: {
-            size: 10,
-          },
+          font: { size: 10 },
         },
         beginAtZero: false,
       },
@@ -171,6 +160,10 @@ const TemperatureHistoryChart = () => {
       mode: "nearest" as const,
       axis: "x" as const,
       intersect: false,
+    },
+    // Enable scrolling or zooming for large datasets
+    animation: {
+      duration: 0, // Disable animations for smoother real-time updates
     },
   };
 

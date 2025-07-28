@@ -29,8 +29,7 @@ export const createWebSocketServer = (server: any) => {
                 const data = JSON.parse(message.toString());
 
                 if (data.type === 'get_temperature_history') {
-                    const limit = data.limit || 50;
-                    sendTemperatureHistory(ws, limit);
+                    sendTemperatureHistory(ws);
                 }
 
                 if (data.type === 'get_pzem_history') {

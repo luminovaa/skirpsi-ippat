@@ -1,11 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-export async function sendTemperatureHistory(ws: any, limit: number = 50) {
+export async function sendTemperatureHistory(ws: any) {
     try {
-       const temperatureHistory = await prisma.suhu.findMany({
-            orderBy: { created_at: 'desc' },
-            take: limit,
+        const temperatureHistory = await prisma.suhu.findMany({
+            orderBy: { created_at: 'asc' }, // Use 'asc' to get data in chronological order
             select: {
                 id: true,
                 temperature: true,
@@ -13,13 +12,11 @@ export async function sendTemperatureHistory(ws: any, limit: number = 50) {
             }
         });
 
-          const sortedData = [...temperatureHistory].reverse();
-
-        // Kirim data ke client
-         ws.send(JSON.stringify({
+        // Send data to client
+        ws.send(JSON.stringify({
             type: 'temperature_history',
-            data: sortedData,
-            count: sortedData.length
+            data: temperatureHistory,
+            count: temperatureHistory.length
         }));
     } catch (error) {
         console.error('Error sending temperature history data:', error);
