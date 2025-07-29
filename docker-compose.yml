@@ -54,9 +54,9 @@ services:
   #     timeout: 10s
   #     retries: 10
 
-# networks:
-#   ippat-net:
-#     driver: bridge
+networks:
+  ippat-net:
+    driver: bridge
 
 # volumes:
 #   mysql_data:  
