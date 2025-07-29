@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -42,14 +42,21 @@ const filterOptions = {
   '1w': { label: '1 Week', updateFrequency: '1.5 hours' },
 };
 
+interface TemperatureHistoryData {
+  temperature: number;
+  timestamp: string;
+  dataPoints?: number;
+}
+
 const TemperatureHistoryChart = () => {
   const { theme } = useTheme();
-  const [temperatureHistory, setTemperatureHistory] = useState<suhu[]>([]);
+  const [temperatureHistory, setTemperatureHistory] = useState<TemperatureHistoryData[]>([]);
   const [latestTemperature, setLatestTemperature] = useState<suhu | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [filter, setFilter] = useState<keyof typeof filterOptions>('1h');
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   const wsUrl = process.env.NEXT_PUBLIC_WS_URL!;
 
@@ -60,6 +67,7 @@ const TemperatureHistoryChart = () => {
         setIsConnected(true);
         setLoading(false);
         setError(null);
+        // Request temperature history with current filter
         socket.current?.send(
           JSON.stringify({ type: "get_temperature_history", filter })
         );
@@ -67,11 +75,13 @@ const TemperatureHistoryChart = () => {
       onMessage: (message: any) => {
         console.log("Received message:", message);
         if (message.type === "temperature_history") {
-          setTemperatureHistory(message.data); // Set data historis
+          setTemperatureHistory(message.data);
+          setLastUpdate(new Date());
+          setLoading(false);
         } else if (message.type === "new_temperature") {
-          setLatestTemperature(message.data); // Set data terbaru
+          setLatestTemperature(message.data);
         } else if (message.type === "latest_data") {
-          setLatestTemperature(message.data.suhu); // Set data terbaru
+          setLatestTemperature(message.data.suhu);
         }
       },
       onClose: () => {
@@ -92,14 +102,51 @@ const TemperatureHistoryChart = () => {
     setFilter(value);
     setLoading(true);
     setTemperatureHistory([]);
+    // Request new data with the selected filter
     socket.current?.send(
       JSON.stringify({ type: "get_temperature_history", filter: value })
     );
   };
 
-  // Gunakan hanya data historis untuk grafik
+  // Format timestamp for display
+  const formatTimestamp = (timestamp: string, filterType: string) => {
+    const date = new Date(timestamp);
+    
+    switch (filterType) {
+      case '1h':
+      case '3h':
+      case '6h':
+        return date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false 
+        });
+      case '12h':
+      case '1d':
+        return date.toLocaleString('en-US', { 
+          month: 'short', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: false 
+        });
+      case '3d':
+      case '1w':
+        return date.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          hour: '2-digit'
+        });
+      default:
+        return date.toLocaleTimeString();
+    }
+  };
+
+  // Prepare chart data
   const data = {
-    labels: temperatureHistory.map(() => ""),
+    labels: temperatureHistory.map((item) => 
+      formatTimestamp(item.timestamp, filter)
+    ),
     datasets: [
       {
         label: "Temperature (°C)",
@@ -112,7 +159,7 @@ const TemperatureHistoryChart = () => {
         borderColor:
           theme === "dark" ? "rgba(37, 99, 235, 1)" : "rgba(37, 99, 235, 1)",
         borderWidth: 2,
-        pointRadius: 2,
+        pointRadius: temperatureHistory.length > 100 ? 0 : 2,
         pointBackgroundColor:
           theme === "dark" ? "rgba(37, 99, 235, 1)" : "rgba(37, 99, 235, 1)",
         tension: 0.4,
@@ -136,6 +183,11 @@ const TemperatureHistoryChart = () => {
         mode: "index" as const,
         intersect: false,
         callbacks: {
+          title: (context: any) => {
+            const index = context[0].dataIndex;
+            const item = temperatureHistory[index];
+            return new Date(item.timestamp).toLocaleString();
+          },
           label: (context: any) => {
             let label = context.dataset.label || "";
             if (label) {
@@ -145,6 +197,14 @@ const TemperatureHistoryChart = () => {
             if(value !== null) {
               label += `${value.toFixed(1)}°C`;
             }
+            
+            // Show data points count if available
+            const index = context.dataIndex;
+            const item = temperatureHistory[index];
+            if (item.dataPoints) {
+              label += ` (${item.dataPoints} samples)`;
+            }
+            
             return label;
           },
         },
@@ -187,7 +247,7 @@ const TemperatureHistoryChart = () => {
       intersect: false,
     },
     animation: {
-      duration: 0,
+      duration: 300,
     },
   };
 
@@ -274,14 +334,22 @@ const TemperatureHistoryChart = () => {
               </div>
             )}
           </div>
-          {latestTemperature && (
-            <p className="text-sm text-muted-foreground mt-2">
-              Latest Temperature: {latestTemperature.temperature.toFixed(1)}°C
-            </p>
-          )}
-          <p className="text-sm text-muted-foreground mt-2">
-            Data updated every {filterOptions[filter].updateFrequency}
-          </p>
+          <div className="flex justify-between items-center mt-2">
+            <div className="text-sm text-muted-foreground">
+              {latestTemperature && (
+                <span className="mr-4">
+                  Latest: {latestTemperature.temperature.toFixed(1)}°C
+                </span>
+              )}
+              <span>
+                Data points: {temperatureHistory.length}
+              </span>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              <div>Updates every {filterOptions[filter].updateFrequency}</div>
+              <div>Last updated: {lastUpdate.toLocaleTimeString()}</div>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
