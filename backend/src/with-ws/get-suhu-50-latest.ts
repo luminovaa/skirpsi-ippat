@@ -54,7 +54,7 @@ export async function sendTemperatureHistory(ws: any, timeFilter: string = '1h')
         // Kelompokkan data berdasarkan interval waktu dan hitung rata-rata
         const groupedData = new Map();
         
-        rawData.forEach((record: { created_at: string | number | Date; temperature: string; }) => {
+        rawData.forEach((record: { id: number; temperature: string; created_at: Date }) => {
             const recordTime = new Date(record.created_at);
             
             // Hitung slot waktu berdasarkan interval
@@ -73,7 +73,7 @@ export async function sendTemperatureHistory(ws: any, timeFilter: string = '1h')
 
         // Hitung rata-rata untuk setiap kelompok dan buat data final
         const averagedData = Array.from(groupedData.entries()).map(([timeSlot, group]) => {
-            const avgTemperature = group.temperatures.reduce((sum: any, temp: any) => sum + temp, 0) / group.temperatures.length;
+            const avgTemperature = group.temperatures.reduce((sum: number, temp: number) => sum + temp, 0) / group.temperatures.length;
             
             return {
                 id: `avg_${timeSlot}`,
