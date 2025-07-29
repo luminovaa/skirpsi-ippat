@@ -21,23 +21,28 @@ interface TemperatureHistoryRecord {
 export async function sendTemperatureHistory(ws: any, filter: keyof typeof timeFilters = '1h') {
   try {
     const { duration, interval, points } = timeFilters[filter] || timeFilters['1h'];
-    const durationInterval = `${duration / 1000} seconds`;
-    const slotInterval = `${interval / 1000} seconds`;
+    
+    // Calculate start time
+    const startTime = new Date(Date.now() - duration);
+    const endTime = new Date();
+    
+    // Convert interval to seconds for PostgreSQL
+    const intervalSeconds = Math.floor(interval / 1000);
 
-    // Execute the query with explicit typing
+    // Use Prisma.sql for safer raw queries
     const temperatureHistory = await prisma.$queryRaw<TemperatureHistoryRecord[]>`
       SELECT
           time_slot AS timestamp,
           COALESCE(AVG(s.temperature), NULL) AS temperature,
           COUNT(s.temperature) AS data_points
       FROM generate_series(
-          (NOW() - ${durationInterval}::interval)::timestamp,
-          NOW(),
-          ${slotInterval}::interval
+          ${startTime}::timestamp,
+          ${endTime}::timestamp,
+          ${intervalSeconds}::text || ' seconds'::interval
       ) AS time_slot
       LEFT JOIN suhu s
           ON s.created_at >= time_slot
-          AND s.created_at < time_slot + ${slotInterval}::interval
+          AND s.created_at < time_slot + ${intervalSeconds}::text || ' seconds'::interval
       GROUP BY time_slot
       ORDER BY time_slot DESC;
     `;
@@ -57,8 +62,8 @@ export async function sendTemperatureHistory(ws: any, filter: keyof typeof timeF
         count: formattedData.length,
         filter,
         timeRange: {
-          start: new Date(Date.now() - duration),
-          end: new Date(),
+          start: startTime,
+          end: endTime,
           interval,
           totalPoints: points,
         },
@@ -88,10 +93,9 @@ export async function sendPzemHistory(ws: any, limit: number = 50) {
             }
         });
 
-                const sortedData = [...pzemHistory].reverse();
+        const sortedData = [...pzemHistory].reverse();
 
-
-        // Kirim data ke client
+        // Send data to client
         ws.send(JSON.stringify({
             type: 'pzem_history',
             data: sortedData,
