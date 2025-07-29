@@ -12,81 +12,60 @@ export const timeFilters = {
   '1w': { duration: 7 * 24 * 60 * 60 * 1000, interval: 90 * 60 * 1000, points: 112 }, // 1 week, 1.5 hours, ~112 points
 };
 
+interface TemperatureHistoryRecord {
+  timestamp: Date;
+  temperature: number | null;
+  data_points: number;
+}
+
 export async function sendTemperatureHistory(ws: any, filter: keyof typeof timeFilters = '1h') {
   try {
     const { duration, interval, points } = timeFilters[filter] || timeFilters['1h'];
-    const now = Date.now();
-    const startTime = new Date(now - duration);
+    const durationInterval = `${duration / 1000} seconds`;
+    const slotInterval = `${interval / 1000} seconds`;
 
-    // Fetch all temperature data within the time range
-    const temperatureHistory = await prisma.suhu.findMany({
-      where: {
-        created_at: {
-          gte: startTime,
-        },
-      },
-      orderBy: { created_at: 'asc' },
-      select: {
-        temperature: true,
-        created_at: true,
-      },
-    });
+    // Execute the query with explicit typing
+    const temperatureHistory = await prisma.$queryRaw<TemperatureHistoryRecord[]>`
+      SELECT
+          time_slot AS timestamp,
+          COALESCE(AVG(s.temperature), NULL) AS temperature,
+          COUNT(s.temperature) AS data_points
+      FROM generate_series(
+          (NOW() - ${durationInterval}::interval)::timestamp,
+          NOW(),
+          ${slotInterval}::interval
+      ) AS time_slot
+      LEFT JOIN suhu s
+          ON s.created_at >= time_slot
+          AND s.created_at < time_slot + ${slotInterval}::interval
+      GROUP BY time_slot
+      ORDER BY time_slot DESC;
+    `;
 
-    // Create sliding window with fixed number of points
-    const averagedData = [];
-    const timeSlots = [];
-    
-    // Generate time slots from now backwards
-    for (let i = points - 1; i >= 0; i--) {
-      const slotEnd = now - (i * interval);
-      const slotStart = slotEnd - interval;
-      timeSlots.push({ start: slotStart, end: slotEnd, timestamp: new Date(slotEnd) });
-    }
+    // Format data for the client
+    const formattedData = temperatureHistory.map((item) => ({
+      temperature: item.temperature ? Number(item.temperature.toFixed(2)) : null,
+      timestamp: new Date(item.timestamp),
+      dataPoints: Number(item.data_points),
+    }));
 
-    // Group data into time slots and calculate averages
-    for (const slot of timeSlots) {
-      const recordsInSlot = temperatureHistory.filter(record => {
-        const recordTime = new Date(record.created_at).getTime();
-        return recordTime >= slot.start && recordTime < slot.end;
-      });
-
-      if (recordsInSlot.length > 0) {
-        const avgTemp = recordsInSlot.reduce((sum, record) => sum + record.temperature, 0) / recordsInSlot.length;
-        averagedData.push({
-          temperature: Number(avgTemp.toFixed(2)),
-          timestamp: slot.timestamp,
-          dataPoints: recordsInSlot.length
-        });
-      } else {
-        // Add null data point for missing intervals to maintain chart continuity
-        averagedData.push({
-          temperature: null,
-          timestamp: slot.timestamp,
-          dataPoints: 0
-        });
-      }
-    }
-
-    // Filter out null values or keep them based on your chart requirements
-    const filteredData = averagedData.filter(item => item.temperature !== null);
-
-    // Send data to client
+    // Send to client
     ws.send(
       JSON.stringify({
         type: 'temperature_history',
-        data: filteredData,
-        count: filteredData.length,
+        data: formattedData,
+        count: formattedData.length,
         filter,
         timeRange: {
-          start: startTime,
-          end: new Date(now),
-          interval: interval,
-          totalPoints: points
-        }
+          start: new Date(Date.now() - duration),
+          end: new Date(),
+          interval,
+          totalPoints: points,
+        },
       })
     );
-    
-    console.log(`Sent temperature history for ${filter}: ${filteredData.length} points`);
+
+    console.log(`Sent temperature history for ${filter}: ${formattedData.length} points`);
   } catch (error) {
     console.error('Error sending temperature history data:', error);
   }
