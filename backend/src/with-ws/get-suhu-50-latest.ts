@@ -26,25 +26,28 @@ export async function sendTemperatureHistory(ws: any, filter: keyof typeof timeF
     const startTime = new Date(Date.now() - duration);
     const endTime = new Date();
     
-    // Convert interval to seconds for PostgreSQL
+    // Convert interval to seconds for MySQL
     const intervalSeconds = Math.floor(interval / 1000);
 
-    // Use Prisma.sql for safer raw queries
+    // MySQL version using recursive CTE to generate time series
     const temperatureHistory = await prisma.$queryRaw<TemperatureHistoryRecord[]>`
+      WITH RECURSIVE time_series AS (
+        SELECT ${startTime} AS time_slot
+        UNION ALL
+        SELECT DATE_ADD(time_slot, INTERVAL ${intervalSeconds} SECOND)
+        FROM time_series
+        WHERE time_slot < ${endTime}
+      )
       SELECT
-          time_slot AS timestamp,
+          ts.time_slot AS timestamp,
           COALESCE(AVG(s.temperature), NULL) AS temperature,
           COUNT(s.temperature) AS data_points
-      FROM generate_series(
-          ${startTime}::timestamp,
-          ${endTime}::timestamp,
-          ${intervalSeconds}::text || ' seconds'::interval
-      ) AS time_slot
+      FROM time_series ts
       LEFT JOIN suhu s
-          ON s.created_at >= time_slot
-          AND s.created_at < time_slot + ${intervalSeconds}::text || ' seconds'::interval
-      GROUP BY time_slot
-      ORDER BY time_slot DESC;
+          ON s.created_at >= ts.time_slot
+          AND s.created_at < DATE_ADD(ts.time_slot, INTERVAL ${intervalSeconds} SECOND)
+      GROUP BY ts.time_slot
+      ORDER BY ts.time_slot DESC;
     `;
 
     // Format data for the client
