@@ -19,7 +19,7 @@ export const createWebSocketServer = (server: any) => {
 
     wss.on('connection', (ws) => {
         console.log('New WebSocket connection');
-        
+
         // Create unique client ID
         const clientId = Math.random().toString(36).substr(2, 9);
         clientIntervals.set(clientId, new Set());
@@ -30,13 +30,12 @@ export const createWebSocketServer = (server: any) => {
         ws.on('message', (message) => {
             try {
                 const data = JSON.parse(message.toString());
-                
+
                 if (data.type === 'get_temperature_history') {
                     const filter = (data.filter || '1h') as keyof typeof timeFilters;
                     const { interval } = timeFilters[filter] || timeFilters['1h'];
-                    console.log(interval)
-                    console.log(filter)
-                    // Clear any existing temperature history intervals for this client
+
+                    // Clear existing intervals
                     const existingIntervals = clientIntervals.get(clientId);
                     if (existingIntervals) {
                         existingIntervals.forEach((intervalId: NodeJS.Timeout) => {
@@ -44,19 +43,18 @@ export const createWebSocketServer = (server: any) => {
                         });
                         existingIntervals.clear();
                     }
-                    
-                    // Send immediate data
-                    // sendTemperatureHistory(ws, filter);
-                    
-                    // Set up new interval based on filter
+
+                    // 🔥 KIRIM DATA LANGSUNG DI SINI (INI YANG KAMU KURANG!)
+                    sendTemperatureHistory(ws, filter);
+
+                    // Set up recurring interval
                     const historyInterval = setInterval(() => {
                         sendTemperatureHistory(ws, filter);
                     }, interval);
-                    
-                    // Store the interval ID for cleanup
+
                     existingIntervals.add(historyInterval);
                 }
-                
+
                 if (data.type === 'get_pzem_history') {
                     const limit = data.limit || 50;
                     sendPzemHistory(ws, limit);
@@ -68,7 +66,7 @@ export const createWebSocketServer = (server: any) => {
 
         ws.on('close', () => {
             console.log('Client disconnected');
-            
+
             // Clear all intervals for this client
             const intervals = clientIntervals.get(clientId);
             if (intervals) {
