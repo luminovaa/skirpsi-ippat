@@ -138,8 +138,15 @@ const TemperatureHistoryChart = () => {
         intersect: false,
         callbacks: {
           label: (context: any) => {
+            let label = context.dataset.label || "";
+            if (label) {
+              label += ": ";
+            }
             const value = context.parsed.y;
-            return `${value.toFixed(1)}°C`;
+            if(value !== null) {
+              label += `${value.toFixed(1)}°C`;
+            }
+            return label;
           },
         },
       },

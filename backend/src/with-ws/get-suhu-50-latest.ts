@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 // Mapping of time filters to their duration in milliseconds and averaging intervals
-const timeFilters = {
+export const timeFilters = {
   '1h': { duration: 1 * 60 * 60 * 1000, interval: 10 * 1000 }, // 1 hour, 10 seconds
   '3h': { duration: 3 * 60 * 60 * 1000, interval: 30 * 1000 }, // 3 hours, 30 seconds
   '6h': { duration: 6 * 60 * 60 * 1000, interval: 60 * 1000 }, // 6 hours, 1 minute
