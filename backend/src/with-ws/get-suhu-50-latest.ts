@@ -1,6 +1,10 @@
+
 import { PrismaClient } from '@prisma/client';
+import WebSocket from 'ws';
 
 const prisma = new PrismaClient();
+
+// Types
 interface TimeConfig {
     hours: number;
     intervalMinutes: number;
@@ -13,7 +17,7 @@ interface TimeConfigs {
 
 interface RawTemperatureData {
     id: number;
-    temperature: number;
+    temperature: number; // Float dari database
     created_at: Date;
 }
 
@@ -113,7 +117,7 @@ export async function sendTemperatureHistory(ws: WebSocket, timeFilter: string =
                 });
             }
             
-            groupedData.get(slotKey)!.temperatures.push(parseFloat(record.temperature.toString()));
+            groupedData.get(slotKey)!.temperatures.push(record.temperature);
         });
 
         // Hitung rata-rata untuk setiap kelompok dan buat data final
