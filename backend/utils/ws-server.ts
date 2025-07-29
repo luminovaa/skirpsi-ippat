@@ -34,7 +34,8 @@ export const createWebSocketServer = (server: any) => {
                 if (data.type === 'get_temperature_history') {
                     const filter = (data.filter || '1h') as keyof typeof timeFilters;
                     const { interval } = timeFilters[filter] || timeFilters['1h'];
-                    
+                    console.log(interval)
+                    console.log(filter)
                     // Clear any existing temperature history intervals for this client
                     const existingIntervals = clientIntervals.get(clientId);
                     if (existingIntervals) {
@@ -45,7 +46,7 @@ export const createWebSocketServer = (server: any) => {
                     }
                     
                     // Send immediate data
-                    sendTemperatureHistory(ws, filter);
+                    // sendTemperatureHistory(ws, filter);
                     
                     // Set up new interval based on filter
                     const historyInterval = setInterval(() => {
