@@ -28,22 +28,26 @@ jobs:
           git pull origin main
           
           # Stop existing containers
-          docker compose down
+          # docker compose down
           
           # Remove old images (optional, untuk menghemat space)
-          docker image prune -f
+          # docker image prune -f
           
           # Build and start containers
-          docker compose up -d
+          # docker compose up -d
           
+          docker stop frontend-ippat backend-ippat || true
+          docker rm frontend-ippat backend-ippat || true
+      
+          # Rebuild hanya frontend & backend (tanpa mysql)
+          docker compose up -d backend frontend
+
           # Show running containers
           docker ps
           
           # Show logs untuk debugging jika diperlukan
           echo "Deployment completed!"
           echo "Backend logs:"
-          docker logs neon-backend --tail 20
+          docker logs backend-ippat --tail 20
           echo "Frontend logs:"
-          docker logs neon-frontend --tail 20
-          echo "Nginx logs:"
-          docker logs neon-nginx --tail 20
+          docker logs frontend-ippat --tail 20
