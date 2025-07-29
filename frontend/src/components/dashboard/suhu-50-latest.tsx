@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -14,10 +14,10 @@ import { Line } from "react-chartjs-2";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTheme } from "next-themes";
 import { useWebSocket } from "@/hooks/web-socket";
 import { suhu } from "@/lib/type";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Register Chart.js components
 ChartJS.register(
@@ -31,15 +31,16 @@ ChartJS.register(
   Filler
 );
 
-const timeFilters = [
-  { value: '1h', label: '1 Hour', interval: '10s' },
-  { value: '3h', label: '3 Hours', interval: '30s' },
-  { value: '6h', label: '6 Hours', interval: '1m' },
-  { value: '12h', label: '12 Hours', interval: '5m' },
-  { value: '1d', label: '1 Day', interval: '15m' },
-  { value: '3d', label: '3 Days', interval: '45m' },
-  { value: '1w', label: '1 Week', interval: '1.5h' },
-];
+// Define filter options and their update frequencies
+const filterOptions = {
+  '1h': { label: '1 Hour', updateFrequency: '10 seconds' },
+  '3h': { label: '3 Hours', updateFrequency: '30 seconds' },
+  '6h': { label: '6 Hours', updateFrequency: '1 minute' },
+  '12h': { label: '12 Hours', updateFrequency: '5 minutes' },
+  '1d': { label: '1 Day', updateFrequency: '15 minutes' },
+  '3d': { label: '3 Days', updateFrequency: '45 minutes' },
+  '1w': { label: '1 Week', updateFrequency: '1.5 hours' },
+};
 
 const TemperatureHistoryChart = () => {
   const { theme } = useTheme();
@@ -47,8 +48,7 @@ const TemperatureHistoryChart = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [timeFilter, setTimeFilter] = useState('1h');
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [filter, setFilter] = useState<keyof typeof filterOptions>('1h');
 
   const wsUrl = process.env.NEXT_PUBLIC_WS_URL!;
 
@@ -59,21 +59,19 @@ const TemperatureHistoryChart = () => {
         setIsConnected(true);
         setLoading(false);
         setError(null);
-        // Request historical data with current filter
+        // Request historical data for the selected filter
         socket.current?.send(
-          JSON.stringify({ 
-            type: "get_temperature_history",
-            filter: timeFilter 
-          })
+          JSON.stringify({ type: "get_temperature_history", filter })
         );
       },
       onMessage: (message: any) => {
+        console.log("Received message:", message);
         if (message.type === "temperature_history") {
-          setTemperatureHistory(message.data);
-          setLastUpdated(new Date().toLocaleTimeString());
+          setTemperatureHistory(message.data); // Set all historical data
         } else if (message.type === "new_temperature") {
-          setTemperatureHistory((prev) => [...prev.slice(-1000), message.data]);
-          setLastUpdated(new Date().toLocaleTimeString());
+          setTemperatureHistory((prev) => [...prev, message.data]); // Append new data
+        } else if (message.type === "latest_data") {
+          setTemperatureHistory((prev) => [...prev, message.data.suhu]); // Append latest data
         }
       },
       onClose: () => {
@@ -85,26 +83,24 @@ const TemperatureHistoryChart = () => {
         setIsConnected(false);
       },
     }),
-    [timeFilter]
+    [filter] // Update dependency to re-run when filter changes
   );
 
   const { socket } = useWebSocket(wsUrl, socketCallbacks);
 
-  useEffect(() => {
-    // When filter changes, request new data
-    if (socket?.current?.readyState === WebSocket.OPEN) {
-      socket.current.send(
-        JSON.stringify({ 
-          type: "get_temperature_history",
-          filter: timeFilter 
-        })
-      );
-    }
-  }, [timeFilter, socket]);
+  // Handle filter change
+  const handleFilterChange = (value: keyof typeof filterOptions) => {
+    setFilter(value);
+    setLoading(true);
+    setTemperatureHistory([]); // Clear existing data
+    socket.current?.send(
+      JSON.stringify({ type: "get_temperature_history", filter: value })
+    );
+  };
 
   // Chart data and options
   const data = {
-    labels: temperatureHistory.map((_, index) => ""), // Empty labels
+    labels: temperatureHistory.map(() => ""), // Empty labels for x-axis
     datasets: [
       {
         label: "Temperature (°C)",
@@ -117,7 +113,7 @@ const TemperatureHistoryChart = () => {
         borderColor:
           theme === "dark" ? "rgba(37, 99, 235, 1)" : "rgba(37, 99, 235, 1)",
         borderWidth: 2,
-        pointRadius: 0, // Remove points for cleaner look
+        pointRadius: 2,
         pointBackgroundColor:
           theme === "dark" ? "rgba(37, 99, 235, 1)" : "rgba(37, 99, 235, 1)",
         tension: 0.4,
@@ -141,11 +137,6 @@ const TemperatureHistoryChart = () => {
         mode: "index" as const,
         intersect: false,
         callbacks: {
-          title: (context: any) => {
-            const dataIndex = context[0].dataIndex;
-            const date = new Date(temperatureHistory[dataIndex].created_at);
-            return date.toLocaleString();
-          },
           label: (context: any) => {
             const value = context.parsed.y;
             return `${value.toFixed(1)}°C`;
@@ -160,10 +151,13 @@ const TemperatureHistoryChart = () => {
             theme === "dark"
               ? "rgba(255, 255, 255, 0.1)"
               : "rgba(0, 0, 0, 0.1)",
-          display: false, // Hide x-axis grid lines
+          display: true,
         },
         ticks: {
-          display: false, // Hide x-axis labels completely
+          color: theme === "dark" ? "#e4e4e7" : "#27272a",
+          font: { size: 10 },
+          maxTicksLimit: 20,
+          autoSkip: true,
         },
       },
       y: {
@@ -190,8 +184,6 @@ const TemperatureHistoryChart = () => {
       duration: 0,
     },
   };
-
-  const currentFilter = timeFilters.find(f => f.value === timeFilter);
 
   if (loading) {
     return (
@@ -239,34 +231,29 @@ const TemperatureHistoryChart = () => {
   return (
     <div className="w-full sm:justify-center">
       <Card className="dark:bg-zinc-900 px-4">
-        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-          <div className="flex flex-col space-y-1.5">
-            <CardTitle className="text-xl sm:text-2xl">
-              Temperature History
-            </CardTitle>
-            <div className="flex items-center space-x-2">
-              <Select 
-                value={timeFilter} 
-                onValueChange={setTimeFilter}
-              >
-                <SelectTrigger className="w-[120px] h-8">
-                  <SelectValue placeholder="Time range" />
-                </SelectTrigger>
-                <SelectContent>
-                  {timeFilters.map((filter) => (
-                    <SelectItem key={filter.value} value={filter.value}>
-                      {filter.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Badge
-                variant={isConnected ? "default" : "destructive"}
-                className={isConnected ? "bg-green-500 text-white" : ""}
-              >
-                {isConnected ? "LIVE" : "OFFLINE"}
-              </Badge>
-            </div>
+        <CardHeader className="flex flex-col items-start sm:flex-row sm:items-center justify-between pb-2 gap-2">
+          <CardTitle className="text-xl sm:text-2xl">
+            Temperature History
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Select onValueChange={handleFilterChange} defaultValue={filter}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Select filter" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(filterOptions).map(([key, { label }]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Badge
+              variant={isConnected ? "default" : "destructive"}
+              className={isConnected ? "bg-green-500 text-white" : ""}
+            >
+              {isConnected ? "LIVE" : "OFFLINE"}
+            </Badge>
           </div>
         </CardHeader>
         <CardContent>
@@ -281,14 +268,9 @@ const TemperatureHistoryChart = () => {
               </div>
             )}
           </div>
-          <div className="mt-2 text-sm text-muted-foreground flex justify-between items-center">
-            <span>
-              {currentFilter && `Data aggregated every ${currentFilter.interval}`}
-            </span>
-            {lastUpdated && (
-              <span>Last updated: {lastUpdated}</span>
-            )}
-          </div>
+          <p className="text-sm text-muted-foreground mt-2">
+            Data updated every {filterOptions[filter].updateFrequency}
+          </p>
         </CardContent>
       </Card>
     </div>
