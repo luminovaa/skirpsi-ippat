@@ -31,7 +31,6 @@ ChartJS.register(
   Filler
 );
 
-// Define filter options and their update frequencies
 const filterOptions = {
   '1h': { label: '1 Hour', updateFrequency: '10 seconds' },
   '3h': { label: '3 Hours', updateFrequency: '30 seconds' },

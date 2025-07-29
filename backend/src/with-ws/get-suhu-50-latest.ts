@@ -3,13 +3,13 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export const timeFilters = {
-  '1h': { duration: 1 * 60 * 60 * 1000, interval: 10 * 1000, points: 360 }, // 1 hour, 10 seconds, ~360 points
-  '3h': { duration: 3 * 60 * 60 * 1000, interval: 30 * 1000, points: 360 }, // 3 hours, 30 seconds, ~360 points  
-  '6h': { duration: 6 * 60 * 60 * 1000, interval: 60 * 1000, points: 360 }, // 6 hours, 1 minute, ~360 points
-  '12h': { duration: 12 * 60 * 60 * 1000, interval: 5 * 60 * 1000, points: 144 }, // 12 hours, 5 minutes, ~144 points
-  '1d': { duration: 24 * 60 * 60 * 1000, interval: 15 * 60 * 1000, points: 96 }, // 1 day, 15 minutes, ~96 points
-  '3d': { duration: 3 * 24 * 60 * 60 * 1000, interval: 45 * 60 * 1000, points: 96 }, // 3 days, 45 minutes, ~96 points
-  '1w': { duration: 7 * 24 * 60 * 60 * 1000, interval: 90 * 60 * 1000, points: 112 }, // 1 week, 1.5 hours, ~112 points
+  '1h': { duration: 1 * 60 * 60 * 1000, interval: 10 * 1000, points: 360 }, // 1 jam, 10 deitk, ~360 points
+  '3h': { duration: 3 * 60 * 60 * 1000, interval: 30 * 1000, points: 360 }, // 3 jam, 30 deitk, ~360 points  
+  '6h': { duration: 6 * 60 * 60 * 1000, interval: 60 * 1000, points: 360 }, // 6 jam, 1 menit ~360 points
+  '12h': { duration: 12 * 60 * 60 * 1000, interval: 5 * 60 * 1000, points: 144 }, // 12 jam, 5 menit, ~144 points
+  '1d': { duration: 24 * 60 * 60 * 1000, interval: 15 * 60 * 1000, points: 96 }, // 1 hari, 15 menit, ~96 points
+  '3d': { duration: 3 * 24 * 60 * 60 * 1000, interval: 45 * 60 * 1000, points: 96 }, // 3 hari, 45 menit, ~96 points
+  '1w': { duration: 7 * 24 * 60 * 60 * 1000, interval: 90 * 60 * 1000, points: 112 }, // 1 mingfgu, 1.5 jam, ~112 points
 };
 
 interface TemperatureHistoryRecord {
@@ -22,14 +22,11 @@ export async function sendTemperatureHistory(ws: any, filter: keyof typeof timeF
   try {
     const { duration, interval, points } = timeFilters[filter] || timeFilters['1h'];
     
-    // Calculate start time
     const startTime = new Date(Date.now() - duration);
     const endTime = new Date();
     
-    // Convert interval to seconds for MySQL
     const intervalSeconds = Math.floor(interval / 1000);
 
-    // MySQL version using recursive CTE to generate time series
     const temperatureHistory = await prisma.$queryRaw<TemperatureHistoryRecord[]>`
       WITH RECURSIVE time_series AS (
         SELECT ${startTime} AS time_slot
@@ -50,14 +47,12 @@ export async function sendTemperatureHistory(ws: any, filter: keyof typeof timeF
       ORDER BY ts.time_slot DESC;
     `;
 
-    // Format data for the client
     const formattedData = temperatureHistory.map((item) => ({
       temperature: item.temperature ? Number(item.temperature.toFixed(2)) : null,
       timestamp: new Date(item.timestamp),
       dataPoints: Number(item.data_points),
     }));
 
-    // Send to client
     ws.send(
       JSON.stringify({
         type: 'temperature_history',
