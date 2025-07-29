@@ -1,11 +1,56 @@
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-export async function sendTemperatureHistory(ws: any, timeFilter: string = '1h') {
+interface TimeConfig {
+    hours: number;
+    intervalMinutes: number;
+    intervalSeconds: number;
+}
+
+interface TimeConfigs {
+    [key: string]: TimeConfig;
+}
+
+interface RawTemperatureData {
+    id: number;
+    temperature: number;
+    created_at: Date;
+}
+
+interface GroupedTemperatureData {
+    temperatures: number[];
+    created_at: Date;
+}
+
+interface AveragedTemperatureData {
+    id: string;
+    temperature: number;
+    created_at: Date;
+    dataPoints: number;
+}
+
+interface TemperatureHistoryResponse {
+    type: string;
+    data: AveragedTemperatureData[];
+    count: number;
+    timeFilter: string;
+    config: {
+        period: string;
+        averageInterval: string;
+        totalRawDataPoints: number;
+    };
+}
+
+interface TemperatureHistoryErrorResponse {
+    type: string;
+    error: string;
+    timeFilter: string;
+}
+
+export async function sendTemperatureHistory(ws: WebSocket, timeFilter: string = '1h'): Promise<void> {
     try {
         // Konfigurasi filter waktu dan interval rata-rata
-        type TimeFilterKey = '1h' | '3h' | '6h' | '12h' | '1d' | '3d' | '1w';
-        const timeConfigs: Record<TimeFilterKey, { hours: number; intervalMinutes: number; intervalSeconds: number }> = {
+        const timeConfigs: TimeConfigs = {
             '1h': { hours: 1, intervalMinutes: 0, intervalSeconds: 10 },    // 10 detik
             '3h': { hours: 3, intervalMinutes: 0, intervalSeconds: 30 },    // 30 detik  
             '6h': { hours: 6, intervalMinutes: 1, intervalSeconds: 0 },     // 1 menit
@@ -15,14 +60,14 @@ export async function sendTemperatureHistory(ws: any, timeFilter: string = '1h')
             '1w': { hours: 168, intervalMinutes: 90, intervalSeconds: 0 }   // 1.5 jam (90 menit)
         };
 
-        const config = timeConfigs[timeFilter as TimeFilterKey] || timeConfigs['1h'];
+        const config: TimeConfig = timeConfigs[timeFilter] || timeConfigs['1h'];
         
         // Hitung waktu mulai berdasarkan filter
         const startTime = new Date();
         startTime.setHours(startTime.getHours() - config.hours);
 
         // Ambil data dari database berdasarkan rentang waktu
-        const rawData = await prisma.suhu.findMany({
+        const rawData: RawTemperatureData[] = await prisma.suhu.findMany({
             where: {
                 created_at: {
                     gte: startTime
@@ -52,9 +97,9 @@ export async function sendTemperatureHistory(ws: any, timeFilter: string = '1h')
         const intervalMs = (config.intervalMinutes * 60 + config.intervalSeconds) * 1000;
         
         // Kelompokkan data berdasarkan interval waktu dan hitung rata-rata
-        const groupedData = new Map();
+        const groupedData = new Map<string, GroupedTemperatureData>();
         
-        rawData.forEach((record: { id: number; temperature: string; created_at: Date }) => {
+        rawData.forEach((record: RawTemperatureData) => {
             const recordTime = new Date(record.created_at);
             
             // Hitung slot waktu berdasarkan interval
@@ -68,12 +113,12 @@ export async function sendTemperatureHistory(ws: any, timeFilter: string = '1h')
                 });
             }
             
-            groupedData.get(slotKey).temperatures.push(parseFloat(record.temperature));
+            groupedData.get(slotKey)!.temperatures.push(parseFloat(record.temperature.toString()));
         });
 
         // Hitung rata-rata untuk setiap kelompok dan buat data final
-        const averagedData = Array.from(groupedData.entries()).map(([timeSlot, group]) => {
-            const avgTemperature = group.temperatures.reduce((sum: number, temp: number) => sum + temp, 0) / group.temperatures.length;
+        const averagedData: AveragedTemperatureData[] = Array.from(groupedData.entries()).map(([timeSlot, group]: [string, GroupedTemperatureData]) => {
+            const avgTemperature: number = group.temperatures.reduce((sum: number, temp: number) => sum + temp, 0) / group.temperatures.length;
             
             return {
                 id: `avg_${timeSlot}`,
@@ -81,10 +126,10 @@ export async function sendTemperatureHistory(ws: any, timeFilter: string = '1h')
                 created_at: group.created_at,
                 dataPoints: group.temperatures.length // Jumlah data yang dirata-rata
             };
-        }).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        }).sort((a: AveragedTemperatureData, b: AveragedTemperatureData) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
         // Kirim data ke client
-        ws.send(JSON.stringify({
+        const response: TemperatureHistoryResponse = {
             type: 'temperature_history',
             data: averagedData,
             count: averagedData.length,
@@ -96,17 +141,21 @@ export async function sendTemperatureHistory(ws: any, timeFilter: string = '1h')
                     : `${config.intervalSeconds} seconds`,
                 totalRawDataPoints: rawData.length
             }
-        }));
+        };
+        
+        ws.send(JSON.stringify(response));
 
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('Error sending temperature history data:', error);
         
         // Kirim error ke client
-        ws.send(JSON.stringify({
+        const errorResponse: TemperatureHistoryErrorResponse = {
             type: 'temperature_history_error',
             error: 'Failed to fetch temperature history',
             timeFilter: timeFilter
-        }));
+        };
+        
+        ws.send(JSON.stringify(errorResponse));
     }
 }
 
