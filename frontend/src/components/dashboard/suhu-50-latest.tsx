@@ -45,6 +45,7 @@ const filterOptions = {
 const TemperatureHistoryChart = () => {
   const { theme } = useTheme();
   const [temperatureHistory, setTemperatureHistory] = useState<suhu[]>([]);
+  const [latestTemperature, setLatestTemperature] = useState<suhu | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -59,7 +60,6 @@ const TemperatureHistoryChart = () => {
         setIsConnected(true);
         setLoading(false);
         setError(null);
-        // Request historical data for the selected filter
         socket.current?.send(
           JSON.stringify({ type: "get_temperature_history", filter })
         );
@@ -67,11 +67,11 @@ const TemperatureHistoryChart = () => {
       onMessage: (message: any) => {
         console.log("Received message:", message);
         if (message.type === "temperature_history") {
-          setTemperatureHistory(message.data); // Set all historical data
+          setTemperatureHistory(message.data); // Set data historis
         } else if (message.type === "new_temperature") {
-          setTemperatureHistory((prev) => [...prev, message.data]); // Append new data
+          setLatestTemperature(message.data); // Set data terbaru
         } else if (message.type === "latest_data") {
-          setTemperatureHistory((prev) => [...prev, message.data.suhu]); // Append latest data
+          setLatestTemperature(message.data.suhu); // Set data terbaru
         }
       },
       onClose: () => {
@@ -83,24 +83,23 @@ const TemperatureHistoryChart = () => {
         setIsConnected(false);
       },
     }),
-    [filter] // Update dependency to re-run when filter changes
+    [filter]
   );
 
   const { socket } = useWebSocket(wsUrl, socketCallbacks);
 
-  // Handle filter change
   const handleFilterChange = (value: keyof typeof filterOptions) => {
     setFilter(value);
     setLoading(true);
-    setTemperatureHistory([]); // Clear existing data
+    setTemperatureHistory([]);
     socket.current?.send(
       JSON.stringify({ type: "get_temperature_history", filter: value })
     );
   };
 
-  // Chart data and options
+  // Gunakan hanya data historis untuk grafik
   const data = {
-    labels: temperatureHistory.map(() => ""), // Empty labels for x-axis
+    labels: temperatureHistory.map(() => ""),
     datasets: [
       {
         label: "Temperature (°C)",
@@ -120,7 +119,7 @@ const TemperatureHistoryChart = () => {
       },
     ],
   };
-
+  
   const options = {
     responsive: true,
     maintainAspectRatio: false,
@@ -275,6 +274,11 @@ const TemperatureHistoryChart = () => {
               </div>
             )}
           </div>
+          {latestTemperature && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Latest Temperature: {latestTemperature.temperature.toFixed(1)}°C
+            </p>
+          )}
           <p className="text-sm text-muted-foreground mt-2">
             Data updated every {filterOptions[filter].updateFrequency}
           </p>
