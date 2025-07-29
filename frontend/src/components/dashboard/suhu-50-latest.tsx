@@ -14,6 +14,7 @@ import { Line } from "react-chartjs-2";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
 import { useWebSocket } from "@/hooks/web-socket";
 import { suhu } from "@/lib/type";
@@ -36,8 +37,22 @@ const TemperatureHistoryChart = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string>('1h');
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [dataConfig, setDataConfig] = useState<any>(null);
 
   const wsUrl = process.env.NEXT_PUBLIC_WS_URL!;
+
+  // Filter options
+  const timeFilters = [
+    { value: '1h', label: '1 Jam', interval: '10 detik' },
+    { value: '3h', label: '3 Jam', interval: '30 detik' },
+    { value: '6h', label: '6 Jam', interval: '1 menit' },
+    { value: '12h', label: '12 Jam', interval: '5 menit' },
+    { value: '1d', label: '1 Hari', interval: '15 menit' },
+    { value: '3d', label: '3 Hari', interval: '45 menit' },
+    { value: '1w', label: '1 Minggu', interval: '1.5 jam' }
+  ];
 
   const socketCallbacks = useMemo(
     () => ({
@@ -46,19 +61,34 @@ const TemperatureHistoryChart = () => {
         setIsConnected(true);
         setLoading(false);
         setError(null);
-        // Request all historical data
+        // Request temperature history with default filter
         socket.current?.send(
-          JSON.stringify({ type: "get_temperature_history" })
+          JSON.stringify({ 
+            type: "get_temperature_history",
+            timeFilter: activeFilter
+          })
         );
       },
       onMessage: (message: any) => {
         console.log("Received message:", message);
         if (message.type === "temperature_history") {
-          setTemperatureHistory(message.data); // Set all historical data
+          setTemperatureHistory(message.data);
+          setDataConfig(message.config);
+          setLastUpdated(new Date());
+        } else if (message.type === "temperature_history_error") {
+          setError(message.error);
         } else if (message.type === "new_temperature") {
-          setTemperatureHistory((prev) => [...prev, message.data]); // Append new data
+          // Only add new data if we're on real-time filter (1h)
+          if (activeFilter === '1h') {
+            setTemperatureHistory((prev) => [...prev, message.data]);
+            setLastUpdated(new Date());
+          }
         } else if (message.type === "latest_data") {
-          setTemperatureHistory((prev) => [...prev, message.data.suhu]); // Append latest data
+          // Only add latest data if we're on real-time filter (1h)
+          if (activeFilter === '1h') {
+            setTemperatureHistory((prev) => [...prev, message.data.suhu]);
+            setLastUpdated(new Date());
+          }
         }
       },
       onClose: () => {
@@ -70,18 +100,33 @@ const TemperatureHistoryChart = () => {
         setIsConnected(false);
       },
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+    [activeFilter]
   );
 
   const { socket } = useWebSocket(wsUrl, socketCallbacks);
 
+  // Handle filter change
+  const handleFilterChange = (filterValue: string) => {
+    setActiveFilter(filterValue);
+    setLoading(true);
+    
+    // Request new data with selected filter
+    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+      socket.current.send(
+        JSON.stringify({ 
+          type: "get_temperature_history",
+          timeFilter: filterValue
+        })
+      );
+    }
+  };
+
+  // Get current filter info
+  const currentFilter = timeFilters.find(f => f.value === activeFilter);
+
   // Chart data and options
   const data = {
-    labels: temperatureHistory.map((item) => {
-      const date = new Date(item.created_at);
-      return `${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}.${String(date.getMilliseconds()).padStart(3, "0")}`;
-    }),
+    labels: temperatureHistory.map(() => ""), // Empty labels
     datasets: [
       {
         label: "Temperature (°C)",
@@ -120,7 +165,10 @@ const TemperatureHistoryChart = () => {
         callbacks: {
           label: (context: any) => {
             const value = context.parsed.y;
-            return `${value.toFixed(1)}°C`;
+            const dataPoint = temperatureHistory[context.dataIndex];
+            const date = new Date(dataPoint.created_at);
+            const timeString = `${date.getHours()}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
+            return [`${value.toFixed(1)}°C`, `Waktu: ${timeString}`];
           },
         },
       },
@@ -135,10 +183,7 @@ const TemperatureHistoryChart = () => {
           display: true,
         },
         ticks: {
-          color: theme === "dark" ? "#e4e4e7" : "#27272a",
-          font: { size: 10 },
-          maxTicksLimit: 20, // Limit the number of x-axis ticks to avoid clutter
-          autoSkip: true, // Automatically skip labels to prevent overlap
+          display: false, // Hide x-axis labels
         },
       },
       y: {
@@ -161,7 +206,6 @@ const TemperatureHistoryChart = () => {
       axis: "x" as const,
       intersect: false,
     },
-    // Enable scrolling or zooming for large datasets
     animation: {
       duration: 0, // Disable animations for smoother real-time updates
     },
@@ -175,19 +219,15 @@ const TemperatureHistoryChart = () => {
           <Skeleton className="h-6 w-16 rounded-full" />
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <div className="flex flex-wrap gap-2">
+              {timeFilters.map((filter) => (
+                <Skeleton key={filter.value} className="h-8 w-16" />
+              ))}
+            </div>
+          </div>
           <div className="h-64 w-64 md:h-[250px] md:w-[807px] relative">
             <Skeleton className="absolute top-0 left-0 h-full w-full" />
-            {Array.from({ length: 10 }).map((_, index) => (
-              <Skeleton
-                key={index}
-                className="absolute bottom-0 left-0 h-1/2 w-full"
-                style={{
-                  left: `${index * 10}%`,
-                  width: "10%",
-                  height: `${Math.random() * 100}%`,
-                }}
-              />
-            ))}
           </div>
         </CardContent>
       </Card>
@@ -225,6 +265,24 @@ const TemperatureHistoryChart = () => {
           </Badge>
         </CardHeader>
         <CardContent>
+          {/* Time Filter Buttons */}
+          <div className="mb-4">
+            <div className="flex flex-wrap gap-2">
+              {timeFilters.map((filter) => (
+                <Button
+                  key={filter.value}
+                  variant={activeFilter === filter.value ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => handleFilterChange(filter.value)}
+                  className="text-xs"
+                >
+                  {filter.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Chart */}
           <div className="h-64 w-64 md:h-[250px] md:w-[807px]">
             {temperatureHistory.length > 0 ? (
               <Line data={data} options={options} />
@@ -235,6 +293,30 @@ const TemperatureHistoryChart = () => {
                 </p>
               </div>
             )}
+          </div>
+
+          {/* Data Info */}
+          <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-4">
+              <span>
+                Data diperbarui setiap: <strong>{currentFilter?.interval}</strong>
+              </span>
+              <span>
+                Total data: <strong>{temperatureHistory.length}</strong>
+              </span>
+            </div>
+            <div className="flex items-center gap-4">
+              {dataConfig && (
+                <span>
+                  Periode: <strong>{dataConfig.period}</strong>
+                </span>
+              )}
+              {lastUpdated && (
+                <span>
+                  Terakhir diperbarui: <strong>{lastUpdated.toLocaleTimeString('id-ID')}</strong>
+                </span>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
