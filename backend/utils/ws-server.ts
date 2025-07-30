@@ -27,6 +27,10 @@ export const createWebSocketServer = (server: any) => {
         // Send latest data immediately on connection
         sendLatestData(ws);
 
+        setInterval(() => {
+            sendLatestData(ws);
+        }, 1000);
+
         ws.on('message', (message) => {
             try {
                 const data = JSON.parse(message.toString());
@@ -44,10 +48,8 @@ export const createWebSocketServer = (server: any) => {
                         existingIntervals.clear();
                     }
 
-                    // 🔥 KIRIM DATA LANGSUNG DI SINI (INI YANG KAMU KURANG!)
                     sendTemperatureHistory(ws, filter);
 
-                    // Set up recurring interval
                     const historyInterval = setInterval(() => {
                         sendTemperatureHistory(ws, filter);
                     }, interval);

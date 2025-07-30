@@ -14,7 +14,13 @@ import { Line } from "react-chartjs-2";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useTheme } from "next-themes";
 import { useWebSocket } from "@/hooks/web-socket";
 import { suhu } from "@/lib/type";
@@ -32,13 +38,13 @@ ChartJS.register(
 );
 
 const filterOptions = {
-  '1h': { label: '1 Hour', updateFrequency: '10 seconds' },
-  '3h': { label: '3 Hours', updateFrequency: '30 seconds' },
-  '6h': { label: '6 Hours', updateFrequency: '1 minute' },
-  '12h': { label: '12 Hours', updateFrequency: '5 minutes' },
-  '1d': { label: '1 Day', updateFrequency: '15 minutes' },
-  '3d': { label: '3 Days', updateFrequency: '45 minutes' },
-  '1w': { label: '1 Week', updateFrequency: '1.5 hours' },
+  "1h": { label: "1 Hour", updateFrequency: "10 seconds" },
+  "3h": { label: "3 Hours", updateFrequency: "30 seconds" },
+  "6h": { label: "6 Hours", updateFrequency: "1 minute" },
+  "12h": { label: "12 Hours", updateFrequency: "5 minutes" },
+  "1d": { label: "1 Day", updateFrequency: "15 minutes" },
+  "3d": { label: "3 Days", updateFrequency: "45 minutes" },
+  "1w": { label: "1 Week", updateFrequency: "1.5 hours" },
 };
 
 interface TemperatureHistoryData {
@@ -49,12 +55,14 @@ interface TemperatureHistoryData {
 
 const TemperatureHistoryChart = () => {
   const { theme } = useTheme();
-  const [temperatureHistory, setTemperatureHistory] = useState<TemperatureHistoryData[]>([]);
+  const [temperatureHistory, setTemperatureHistory] = useState<
+    TemperatureHistoryData[]
+  >([]);
   const [latestTemperature, setLatestTemperature] = useState<suhu | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [filter, setFilter] = useState<keyof typeof filterOptions>('1h');
+  const [filter, setFilter] = useState<keyof typeof filterOptions>("1h");
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   const wsUrl = process.env.NEXT_PUBLIC_WS_URL!;
@@ -110,46 +118,46 @@ const TemperatureHistoryChart = () => {
   // Format timestamp for display
   const formatTimestamp = (timestamp: string, filterType: string) => {
     const date = new Date(timestamp);
-    
+
     switch (filterType) {
-      case '1h':
-      case '3h':
-      case '6h':
-        return date.toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit',
-          hour12: false 
+      case "1h":
+      case "3h":
+      case "6h":
+        return date.toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
         });
-      case '12h':
-      case '1d':
-        return date.toLocaleString('en-US', { 
-          month: 'short', 
-          day: 'numeric', 
-          hour: '2-digit', 
-          minute: '2-digit',
-          hour12: false 
+      case "12h":
+      case "1d":
+        return date.toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
         });
-      case '3d':
-      case '1w':
-        return date.toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric',
-          hour: '2-digit'
+      case "3d":
+      case "1w":
+        return date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
         });
       default:
         return date.toLocaleTimeString();
     }
   };
+  const reversedHistory = [...temperatureHistory].reverse();
 
-  // Prepare chart data
   const data = {
-    labels: temperatureHistory.map((item) => 
+    labels: reversedHistory.map((item) =>
       formatTimestamp(item.timestamp, filter)
     ),
     datasets: [
       {
         label: "Temperature (°C)",
-        data: temperatureHistory.map((item) => item.temperature),
+        data: reversedHistory.map((item) => item.temperature),
         fill: true,
         backgroundColor:
           theme === "dark"
@@ -165,7 +173,7 @@ const TemperatureHistoryChart = () => {
       },
     ],
   };
-  
+
   const options = {
     responsive: true,
     maintainAspectRatio: false,
@@ -181,10 +189,11 @@ const TemperatureHistoryChart = () => {
       tooltip: {
         mode: "index" as const,
         intersect: false,
+        // Dalam options.plugins.tooltip.callbacks:
         callbacks: {
           title: (context: any) => {
-            const index = context[0].dataIndex;
-            const item = temperatureHistory[index];
+            const index = reversedHistory.length - 1 - context[0].dataIndex;
+            const item = temperatureHistory[index]; // Use original index for accurate timestamp
             return new Date(item.timestamp).toLocaleString();
           },
           label: (context: any) => {
@@ -193,17 +202,17 @@ const TemperatureHistoryChart = () => {
               label += ": ";
             }
             const value = context.parsed.y;
-            if(value !== null) {
+            if (value !== null) {
               label += `${value.toFixed(1)}°C`;
             }
-            
-            // Show data points count if available
-            const index = context.dataIndex;
-            const item = temperatureHistory[index];
+
+            const originalIndex =
+              reversedHistory.length - 1 - context.dataIndex;
+            const item = temperatureHistory[originalIndex]; // Use original index
             if (item.dataPoints) {
               label += ` (${item.dataPoints} samples)`;
             }
-            
+
             return label;
           },
         },
@@ -340,9 +349,7 @@ const TemperatureHistoryChart = () => {
                   Latest: {latestTemperature.temperature.toFixed(1)}°C
                 </span>
               )}
-              <span>
-                Data points: {temperatureHistory.length}
-              </span>
+              <span>Data points: {temperatureHistory.length}</span>
             </div>
             <div className="text-sm text-muted-foreground">
               <div>Updates every {filterOptions[filter].updateFrequency}</div>
