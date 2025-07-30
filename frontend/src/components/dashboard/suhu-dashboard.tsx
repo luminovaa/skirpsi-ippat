@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useTheme } from "next-themes";
 import { suhu } from "@/lib/type";
 import { useWebSocket } from "@/hooks/web-socket";
@@ -13,26 +13,37 @@ const SuhuDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [wsReady, setWsReady] = useState(false);
   const [dataReceived, setDataReceived] = useState(false);
   const [temperatureClassification, setTemperatureClassification] = useState<
     string | null
   >(null);
+  
   const wsUrl = process.env.NEXT_PUBLIC_WS_URL!;
 
-  // Set up timeout for data receipt
+  // Function to send messages to WebSocket
+  const sendMessage = useCallback((socket: WebSocket | null, message: any) => {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      console.log('Sending Suhu message:', message);
+      socket.send(JSON.stringify(message));
+      return true;
+    }
+    console.warn('Suhu Socket not ready, message not sent:', message);
+    return false;
+  }, []);
+
+  // Set up timeout for data receipt - only if connected but no data
   useEffect(() => {
-    if (loading) {
+    if (isConnected && !dataReceived) {
       const timeoutId = setTimeout(() => {
         if (!dataReceived) {
-          setLoading(false);
-          setError("Server error: Contact us u admin for help.");
+          setError("No data received from server. Check sensor connection.");
         }
-      }, 10000); // 10 seconds timeout
+      }, 15000); // 15 seconds timeout after connection
 
-      // Clean up function
       return () => clearTimeout(timeoutId);
     }
-  }, [loading, dataReceived]);
+  }, [isConnected, dataReceived]);
 
   const classifyTemperature = (temp: number) => {
     if (temp <= 170) {
@@ -44,35 +55,95 @@ const SuhuDashboard = () => {
     }
   };
 
+  const getTemperatureColor = (temp: number) => {
+    if (temp <= 170) {
+      return "text-blue-500"; // Light - Blue
+    } else if (temp > 170 && temp < 240) {
+      return "text-yellow-500"; // Medium - Yellow
+    } else {
+      return "text-red-500"; // Dark - Red
+    }
+  };
+
   const socketCallbacks = useMemo(() => ({
-    onOpen: () => {
-      console.log("WebSocket connection established");
+    onOpen: (socket: WebSocket) => {
+      console.log("Suhu WebSocket connection established");
       setIsConnected(true);
-      // Keep loading true until we actually receive data
+      setWsReady(true);
+      setError(null);
+      
+      // Immediately request latest data
+      sendMessage(socket, { type: 'start_latest_data' });
     },
     onMessage: (message: any) => {
-      if (message.type === "latest_data") {
-        setLatestSuhu(message.data.suhu);
-        setTodayStats(message.data.suhuAvg);
-        const currentTemp = message.data.suhu.temperature;
-        setTemperatureClassification(classifyTemperature(currentTemp));
-        setDataReceived(true);
-        setLoading(false);
-        setError(null);
+      console.log('Suhu Received message:', message);
+      
+      switch (message.type) {
+        case 'connection_established':
+          console.log('Suhu Connection established with client ID:', message.clientId);
+          // Automatically request data when connection is established
+          if (socket && socket.current) {
+            sendMessage(socket.current, { type: 'start_latest_data' });
+          }
+          break;
+          
+        case 'latest_data':
+          console.log('Suhu Latest data received:', message.data);
+          if (message.data) {
+            if (message.data.suhu) {
+              setLatestSuhu(message.data.suhu);
+              const currentTemp = message.data.suhu.temperature;
+              setTemperatureClassification(classifyTemperature(currentTemp));
+            }
+            
+            if (message.data.suhuAvg) {
+              setTodayStats(message.data.suhuAvg);
+            }
+            
+            setDataReceived(true);
+            setLoading(false);
+            setError(null);
+          }
+          break;
+          
+        case 'stream_started':
+          console.log(`Suhu Stream started: ${message.stream}`);
+          if (message.stream === 'latest_data') {
+            setLoading(false);
+          }
+          break;
+          
+        case 'stream_stopped':
+          console.log(`Suhu Stream stopped: ${message.stream}`);
+          break;
+          
+        case 'error':
+          console.error('Suhu WebSocket error message:', message.message);
+          setError(`Server error: ${message.message}`);
+          break;
+          
+        default:
+          console.log('Suhu Unknown message type:', message.type);
+          break;
       }
     },
     onClose: () => {
+      console.log("Suhu WebSocket connection closed");
       setIsConnected(false);
+      setWsReady(false);
+      setDataReceived(false);
       setError("Disconnected from server. Reconnecting...");
     },
     onError: (error: Event) => {
-      console.error("WebSocket error:", error);
+      console.error("Suhu WebSocket error:", error);
       setError("Connection error. Trying to reconnect...");
       setIsConnected(false);
+      setWsReady(false);
+      setDataReceived(false);
     },
-  }), []);
+  }), [sendMessage]);
   
-  useWebSocket(wsUrl, socketCallbacks);
+  const { socket } = useWebSocket(wsUrl, socketCallbacks);
 
   if (loading) {
     return (
@@ -97,7 +168,7 @@ const SuhuDashboard = () => {
     );
   }
 
-  if (error) {
+  if (error && !isConnected) {
     return (
       <div className="w-full sm:justify-center relative">
         <div className="filter blur-sm">
@@ -122,19 +193,19 @@ const SuhuDashboard = () => {
   
         {/* Overlay untuk pesan error */}
         <div className="absolute inset-0 flex items-center justify-center">
-        <Card className="w-full sm:w-80 md:w-96 h-full bg-transparent border-0">
-        <CardHeader className="flex flex-row pt-12 items-center justify-between pb-2">
-              <CardTitle className="text-xl sm:text-2xl text-destructive">Error</CardTitle>
+          <Card className="w-full sm:w-80 md:w-96 h-full bg-transparent border-0">
+            <CardHeader className="flex flex-row pt-12 items-center justify-between pb-2">
+              <CardTitle className="text-xl sm:text-2xl text-destructive">Connection Error</CardTitle>
               <Badge variant="destructive">OFFLINE</Badge>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col pt-4 items-center">
-                <p className="text-lg text-destructive text-center">{error}</p>
+                <p className="text-sm text-center text-muted-foreground mb-2">{error}</p>
                 <button
                   onClick={() => window.location.reload()}
-                  className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
                 >
-                  Retry
+                  Retry Connection
                 </button>
               </div>
             </CardContent>
@@ -149,42 +220,77 @@ const SuhuDashboard = () => {
       <Card className="w-full sm:w-80 md:w-96 dark:bg-zinc-900">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-xl sm:text-2xl">Temperature</CardTitle>
-          <Badge
-            variant={isConnected ? "default" : "destructive"}
-            className={isConnected ? "bg-green-500 text-white" : ""}
-          >
-            {isConnected ? "LIVE" : "OFFLINE"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant={isConnected ? "outline" : "destructive"}
+              className={isConnected ? "bg-green-500 text-white" : ""}
+            >
+              {isConnected ? "LIVE" : "OFFLINE"}
+            </Badge>
+            {error && isConnected && (
+              <Badge variant="destructive" className="text-xs max-w-20 truncate">
+                Sensor Issue
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col pt-4 sm:pt-9 items-center">
             <p className="text-4xl sm:text-5xl font-bold text-foreground">
-              {latestSuhu?.temperature} °C
+              {latestSuhu?.temperature ?? 0}°C
             </p>
             <p
-              className={`mt-2 text-base sm:text-lg ${
-                theme === "dark" ? "text-primary-light" : "text-primary-dark"
+              className={`mt-2 text-base sm:text-lg font-medium ${
+                latestSuhu?.temperature 
+                  ? getTemperatureColor(latestSuhu.temperature)
+                  : "text-muted-foreground"
               }`}
             >
-              {temperatureClassification}
+              {temperatureClassification ?? "No Data"}
             </p>
           </div>
+          
           <div className="mt-6 sm:mt-10 flex justify-between">
-            <p
-              className={`text-base sm:text-lg ${
-                theme === "dark" ? "text-primary-light" : "text-primary-dark"
-              }`}
-            >
-              Min: {todayStats?.min} °C
-            </p>
-            <p
-              className={`text-base sm:text-lg ${
-                theme === "dark" ? "text-primary-light" : "text-primary-dark"
-              }`}
-            >
-              Max: {todayStats?.max} °C
-            </p>
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Min Today</p>
+              <p className="text-base sm:text-lg font-semibold text-blue-500">
+                {todayStats?.min ?? '--'}°C
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Max Today</p>
+              <p className="text-base sm:text-lg font-semibold text-red-500">
+                {todayStats?.max ?? '--'}°C
+              </p>
+            </div>
           </div>
+
+          {/* Temperature Range Indicators */}
+          <div className="mt-6 flex justify-between text-xs">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+              <span className="text-muted-foreground">Light (≤170°C)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+              <span className="text-muted-foreground">Medium (171-239°C)</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+              <span className="text-muted-foreground">Dark (≥240°C)</span>
+            </div>
+          </div>
+
+          {/* Debug info - remove in production */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-4 p-2 bg-muted rounded text-xs">
+              <p>Connection: {isConnected ? 'Connected' : 'Disconnected'}</p>
+              <p>WebSocket Ready: {wsReady ? 'Yes' : 'No'}</p>
+              <p>Data Received: {dataReceived ? 'Yes' : 'No'}</p>
+              <p>Temperature: {latestSuhu?.temperature ?? 'None'}°C</p>
+              <p>Last Update: {latestSuhu?.created_at ? new Date(latestSuhu.created_at).toLocaleTimeString() : 'None'}</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

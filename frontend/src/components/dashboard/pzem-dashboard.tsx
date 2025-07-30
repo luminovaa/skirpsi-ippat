@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import { useTheme } from "next-themes";
 import { pzem } from "@/lib/type";
 import { useWebSocket } from "@/hooks/web-socket";
@@ -12,35 +12,88 @@ const PzemDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [wsReady, setWsReady] = useState(false);
 
   const wsUrl = process.env.NEXT_PUBLIC_WS_URL!;
 
+  // Function to send messages to WebSocket
+  const sendMessage = useCallback((socket: WebSocket | null, message: any) => {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      console.log('Sending message:', message);
+      socket.send(JSON.stringify(message));
+      return true;
+    }
+    console.warn('Socket not ready, message not sent:', message);
+    return false;
+  }, []);
+
   const socketCallbacks = useMemo(() => ({
-    onOpen: () => {
+    onOpen: (socket: WebSocket) => {
       console.log("WebSocket connection established");
       setIsConnected(true);
-      setLoading(false);
+      setWsReady(true);
       setError(null);
+      
+      // Immediately request latest data
+      sendMessage(socket, { type: 'start_latest_data' });
     },
     onMessage: (message: any) => {
-      if (message.type === "latest_data") {
-        setLatestPzem(message.data.pzem);
+      console.log('Received message:', message);
+      
+      switch (message.type) {
+        case 'connection_established':
+          console.log('Connection established with client ID:', message.clientId);
+          // Automatically request data when connection is established
+          if (socket && socket.current) {
+            sendMessage(socket.current, { type: 'start_latest_data' });
+          }
+          break;
+          
+        case 'latest_data':
+          console.log('Latest data received:', message.data);
+          if (message.data && message.data.pzem) {
+            setLatestPzem(message.data.pzem);
+          }
+          setLoading(false);
+          break;
+          
+        case 'stream_started':
+          console.log(`Stream started: ${message.stream}`);
+          if (message.stream === 'latest_data') {
+            setLoading(false);
+          }
+          break;
+          
+        case 'stream_stopped':
+          console.log(`Stream stopped: ${message.stream}`);
+          break;
+          
+        case 'error':
+          console.error('WebSocket error message:', message.message);
+          setError(`Server error: ${message.message}`);
+          break;
+          
+        default:
+          console.log('Unknown message type:', message.type);
+          break;
       }
     },
     onClose: () => {
+      console.log("WebSocket connection closed");
       setIsConnected(false);
+      setWsReady(false);
       setError("Disconnected from server. Reconnecting...");
     },
     onError: (error: Event) => {
       console.error("WebSocket error:", error);
       setError("Connection error. Trying to reconnect...");
       setIsConnected(false);
+      setWsReady(false);
     },
-  }), []);
+  }), [sendMessage]);
   
-  useWebSocket(wsUrl, socketCallbacks);
+  const { socket } = useWebSocket(wsUrl, socketCallbacks);
 
-  
   if (loading) {
     return (
       <div className="w-full px-4">
@@ -66,25 +119,40 @@ const PzemDashboard = () => {
     );
   }
 
-  if (error) {
+  if (error && !isConnected) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-lg text-destructive">{error}</p>
+        <div className="text-center">
+          <p className="text-lg text-destructive mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+          >
+            Reload Page
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full ">
+    <div className="w-full">
       <Card className="w-full max-w-4xl mx-auto dark:bg-zinc-900">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-xl sm:text-2xl">Power Usage</CardTitle>
-          <Badge
-            variant={isConnected ? "outline" : "destructive"}
-            className={isConnected ? "bg-green-500 text-white" : ""}
-          >
-            {isConnected ? "LIVE" : "OFFLINE"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant={isConnected ? "outline" : "destructive"}
+              className={isConnected ? "bg-green-500 text-white" : ""}
+            >
+              {isConnected ? "LIVE" : "OFFLINE"}
+            </Badge>
+            {error && isConnected && (
+              <Badge variant="destructive" className="text-xs">
+                {error}
+              </Badge>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
@@ -151,6 +219,15 @@ const PzemDashboard = () => {
               </CardContent>
             </Card>
           </div>
+          
+          {/* Debug info - remove in production */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-4 p-2 bg-muted rounded text-xs">
+              <p>Connection Status: {isConnected ? 'Connected' : 'Disconnected'}</p>
+              <p>WebSocket Ready: {wsReady ? 'Yes' : 'No'}</p>
+              <p>Last Data: {latestPzem?.created_at ? new Date(latestPzem.created_at).toLocaleTimeString() : 'None'}</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
