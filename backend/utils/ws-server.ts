@@ -237,7 +237,7 @@ function startPzemHistoryStream(client: ClientState, limit: number = 50) {
     // Start interval - send every 5 seconds for PZEM history
     client.intervals.pzemHistory = setInterval(() => {
         sendPzemHistory(client.ws, limit);
-    }, 5000);
+    }, 1000);
     
     client.subscriptions.pzemHistory = true;
     client.subscriptions.pzemHistoryLimit = limit;
@@ -246,7 +246,7 @@ function startPzemHistoryStream(client: ClientState, limit: number = 50) {
         type: 'stream_started',
         stream: 'pzem_history',
         limit: limit,
-        interval: 5000
+        interval: 1000
     }));
 
     console.log(`Started PZEM history stream for client ${client.id} with limit ${limit}`);
