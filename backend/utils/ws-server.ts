@@ -1,165 +1,353 @@
-import { WebSocketServer, WebSocket } from 'ws';
-import { 
-  setWebSocketServer as setPzemWebSocketServer,
-} from '../src/pzem/controller/post-pzem';
+import { WebSocketServer } from 'ws';
+import { setWebSocketServer as setPzemWebSocketServer } from '../src/pzem/controller/post-pzem';
 import { setWebSocketServer as setSuhuWebSocketServer } from '../src/suhu/controller/post-suhu';
 import { setWebSocketServer as setRPMWebSocketServer } from '../src/rpm/controller/post-rpm';
 import { sendLatestData } from '../src/with-ws/get-latest-data';
-import { 
-  sendPzemHistory, 
-  sendTemperatureHistory, 
-  timeFilters 
-} from '../src/with-ws/get-suhu-50-latest';
+import { sendPzemHistory, sendTemperatureHistory, timeFilters } from '../src/with-ws/get-suhu-50-latest';
 import { startDataMonitor } from './pzem-checker';
 
-type ClientId = string;
-type IntervalType = 'latest' | 'temperature_history' | 'pzem_history';
-
 interface ClientState {
-  intervals: Map<IntervalType, NodeJS.Timeout>;
+    id: string;
+    ws: any;
+    intervals: {
+        latestData?: NodeJS.Timeout;
+        temperatureHistory?: NodeJS.Timeout;
+        pzemHistory?: NodeJS.Timeout;
+    };
+    subscriptions: {
+        latestData: boolean;
+        temperatureHistory: boolean;
+        temperatureFilter?: keyof typeof timeFilters;
+        pzemHistory: boolean;
+        pzemHistoryLimit?: number;
+    };
+    lastDataHash?: string; // For detecting data changes
 }
 
-export class WebSocketManager {
-  private wss: WebSocketServer;
-  private clients: Map<ClientId, ClientState> = new Map();
+// Store client states
+const clients = new Map<string, ClientState>();
 
-  constructor(server: any) {
-    this.wss = new WebSocketServer({ server });
-    this.initialize();
-  }
+export const createWebSocketServer = (server: any) => {
+    const wss = new WebSocketServer({ server });
 
-  private initialize(): void {
-    // Set up WebSocket servers for different modules
-    setPzemWebSocketServer(this.wss);
-    setSuhuWebSocketServer(this.wss);
-    setRPMWebSocketServer(this.wss);
-    startDataMonitor(this.wss);
+    setPzemWebSocketServer(wss);
+    setSuhuWebSocketServer(wss);
+    setRPMWebSocketServer(wss);
+    startDataMonitor(wss);
 
-    this.setupEventHandlers();
-  }
+    wss.on('connection', (ws) => {
+        console.log('New WebSocket connection');
 
-  private setupEventHandlers(): void {
-    this.wss.on('connection', (ws: WebSocket) => {
-      const clientId = this.generateClientId();
-      console.log(`New connection from client ${clientId}`);
+        // Create unique client ID and state
+        const clientId = Math.random().toString(36).substr(2, 9);
+        const clientState: ClientState = {
+            id: clientId,
+            ws,
+            intervals: {},
+            subscriptions: {
+                latestData: false,
+                temperatureHistory: false,
+                pzemHistory: false
+            }
+        };
+        
+        clients.set(clientId, clientState);
 
-      this.clients.set(clientId, {
-        intervals: new Map()
-      });
+        // Send initial connection confirmation
+        ws.send(JSON.stringify({
+            type: 'connection_established',
+            clientId: clientId,
+            availableCommands: [
+                'start_latest_data',
+                'stop_latest_data', 
+                'get_temperature_history',
+                'stop_temperature_history',
+                'start_pzem_history',
+                'stop_pzem_history',
+                'get_pzem_history_once'
+            ]
+        }));
 
-      this.setupClientHandlers(clientId, ws);
-      this.sendInitialData(ws);
+        ws.on('message', (message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                handleClientMessage(clientId, data);
+            } catch (error) {
+                console.error('Error processing WebSocket message:', error);
+                ws.send(JSON.stringify({
+                    type: 'error',
+                    message: 'Invalid JSON message'
+                }));
+            }
+        });
+
+        ws.on('close', () => {
+            console.log(`Client ${clientId} disconnected`);
+            cleanupClient(clientId);
+        });
+
+        ws.on('error', (error) => {
+            console.error(`WebSocket error for client ${clientId}:`, error);
+            cleanupClient(clientId);
+        });
     });
-  }
 
-  private setupClientHandlers(clientId: ClientId, ws: WebSocket): void {
-    // Setup message handler
-    ws.on('message', (message: Buffer) => this.handleMessage(clientId, ws, message));
+    return wss;
+};
 
-    // Setup close/cleanup handler
-    ws.on('close', () => this.cleanupClient(clientId));
+function handleClientMessage(clientId: string, data: any) {
+    const client = clients.get(clientId);
+    if (!client) return;
 
-    // Setup error handler
-    ws.on('error', (error) => {
-      console.error(`WebSocket error for client ${clientId}:`, error);
-      this.cleanupClient(clientId);
-    });
-  }
+    switch (data.type) {
+        case 'start_latest_data':
+            startLatestDataStream(client);
+            break;
 
-  private handleMessage(clientId: ClientId, ws: WebSocket, message: Buffer): void {
-    try {
-      const data = JSON.parse(message.toString());
-      
-      switch (data.type) {
+        case 'stop_latest_data':
+            stopLatestDataStream(client);
+            break;
+
         case 'get_temperature_history':
-          this.handleTemperatureHistoryRequest(clientId, ws, data.filter);
-          break;
-          
-        case 'get_pzem_history':
-          this.handlePzemHistoryRequest(ws, data.limit);
-          break;
-          
+            const filter = (data.filter || '1h') as keyof typeof timeFilters;
+            startTemperatureHistoryStream(client, filter);
+            break;
+
+        case 'stop_temperature_history':
+            stopTemperatureHistoryStream(client);
+            break;
+
+        case 'start_pzem_history':
+            const historyLimit = data.limit || 50;
+            startPzemHistoryStream(client, historyLimit);
+            break;
+
+        case 'stop_pzem_history':
+            stopPzemHistoryStream(client);
+            break;
+
+        case 'get_pzem_history_once':
+            const onceLimit = data.limit || 50;
+            sendPzemHistory(client.ws, onceLimit);
+            break;
+
+        case 'ping':
+            client.ws.send(JSON.stringify({ type: 'pong' }));
+            break;
+
         default:
-          console.warn(`Unknown message type from client ${clientId}: ${data.type}`);
-      }
-    } catch (error) {
-      console.error(`Error processing message from client ${clientId}:`, error);
+            client.ws.send(JSON.stringify({
+                type: 'error',
+                message: `Unknown command: ${data.type}`
+            }));
+            break;
     }
-  }
-
-  private handleTemperatureHistoryRequest(clientId: ClientId, ws: WebSocket, filter: string = '1h'): void {
-    const validatedFilter = this.validateTimeFilter(filter);
-    const { interval } = timeFilters[validatedFilter];
-
-    // Clear any existing temperature history interval
-    this.clearClientInterval(clientId, 'temperature_history');
-
-    // Send initial data and set up interval
-    sendTemperatureHistory(ws, validatedFilter);
-
-    const historyInterval = setInterval(() => {
-      sendTemperatureHistory(ws, validatedFilter);
-    }, interval);
-
-    this.clients.get(clientId)?.intervals.set('temperature_history', historyInterval);
-  }
-
-  private handlePzemHistoryRequest(ws: WebSocket, limit: number = 50): void {
-    // Pzem history is sent once (no interval) unless you want to implement periodic updates
-    sendPzemHistory(ws, limit);
-  }
-
-  private sendInitialData(ws: WebSocket): void {
-    // Send latest data immediately
-    sendLatestData(ws);
-
-    // Set up periodic latest data updates
-    const latestDataInterval = setInterval(() => {
-      sendLatestData(ws);
-    }, 1000);
-
-    // Store the interval for cleanup
-    const clientId = [...this.clients.keys()].pop(); // Get the last added client
-    if (clientId) {
-      this.clients.get(clientId)?.intervals.set('latest', latestDataInterval);
-    }
-  }
-
-  private cleanupClient(clientId: ClientId): void {
-    console.log(`Cleaning up client ${clientId}`);
-    
-    const clientState = this.clients.get(clientId);
-    if (clientState) {
-      // Clear all intervals for this client
-      clientState.intervals.forEach((interval, type) => {
-        clearInterval(interval);
-        console.log(`Cleared ${type} interval for client ${clientId}`);
-      });
-      
-      this.clients.delete(clientId);
-    }
-  }
-
-  private clearClientInterval(clientId: ClientId, type: IntervalType): void {
-    const clientState = this.clients.get(clientId);
-    const interval = clientState?.intervals.get(type);
-    
-    if (clientState && interval) {
-      clearInterval(interval);
-      clientState.intervals.delete(type);
-    }
-  }
-
-  private validateTimeFilter(filter: string): keyof typeof timeFilters {
-    return timeFilters[filter as keyof typeof timeFilters] ? 
-      filter as keyof typeof timeFilters : 
-      '1h';
-  }
-
-  private generateClientId(): ClientId {
-    return Math.random().toString(36).substr(2, 9);
-  }
 }
 
-// Usage:
-// const webSocketManager = new WebSocketManager(server);
+function startLatestDataStream(client: ClientState) {
+    // Stop existing stream if any
+    stopLatestDataStream(client);
+
+    // Send initial data immediately
+    sendLatestDataWithChangeDetection(client);
+    
+    // Start interval - check every 500ms but only send if data changed
+    client.intervals.latestData = setInterval(() => {
+        sendLatestDataWithChangeDetection(client);
+    }, 500); // Reduced interval for better responsiveness
+    
+    client.subscriptions.latestData = true;
+    
+    client.ws.send(JSON.stringify({
+        type: 'stream_started',
+        stream: 'latest_data',
+        interval: 500,
+        note: 'Data sent only when changed'
+    }));
+
+    console.log(`Started latest data stream for client ${client.id}`);
+}
+
+async function sendLatestDataWithChangeDetection(client: ClientState) {
+    try {
+        // Get latest data (you'll need to modify this based on your sendLatestData implementation)
+        const latestData = await getLatestDataForComparison();
+        
+        // Create hash of current data
+        const currentHash = JSON.stringify(latestData);
+        
+        // Only send if data changed
+        if (client.lastDataHash !== currentHash) {
+            client.lastDataHash = currentHash;
+            sendLatestData(client.ws);
+            console.log(`Sent latest data to client ${client.id} (data changed)`);
+        }
+    } catch (error) {
+        console.error('Error in sendLatestDataWithChangeDetection:', error);
+        // Fallback to regular send
+        sendLatestData(client.ws);
+    }
+}
+
+// Helper function - you need to implement this based on your data structure
+async function getLatestDataForComparison() {
+    // This should return the same data structure that sendLatestData sends
+    // but in a format suitable for comparison
+    // Example implementation:
+    /*
+    const [latestPzem, latestSuhu, latestRpm] = await Promise.all([
+        prisma.pzem.findFirst({ orderBy: { created_at: 'desc' } }),
+        prisma.suhu.findFirst({ orderBy: { created_at: 'desc' } }),
+        prisma.rpm.findFirst({ orderBy: { created_at: 'desc' } })
+    ]);
+    
+    return {
+        pzem: latestPzem,
+        suhu: latestSuhu,
+        rpm: latestRpm,
+        timestamp: new Date()
+    };
+    */
+    return {}; // Placeholder - implement based on your actual data structure
+}
+
+function stopLatestDataStream(client: ClientState) {
+    if (client.intervals.latestData) {
+        clearInterval(client.intervals.latestData);
+        client.intervals.latestData = undefined;
+    }
+    
+    client.subscriptions.latestData = false;
+    
+    client.ws.send(JSON.stringify({
+        type: 'stream_stopped',
+        stream: 'latest_data'
+    }));
+
+    console.log(`Stopped latest data stream for client ${client.id}`);
+}
+
+function startPzemHistoryStream(client: ClientState, limit: number = 50) {
+    // Stop existing stream if any
+    stopPzemHistoryStream(client);
+    
+    // Send initial data immediately
+    sendPzemHistory(client.ws, limit);
+    
+    // Start interval - send every 5 seconds for PZEM history
+    client.intervals.pzemHistory = setInterval(() => {
+        sendPzemHistory(client.ws, limit);
+    }, 5000);
+    
+    client.subscriptions.pzemHistory = true;
+    client.subscriptions.pzemHistoryLimit = limit;
+    
+    client.ws.send(JSON.stringify({
+        type: 'stream_started',
+        stream: 'pzem_history',
+        limit: limit,
+        interval: 5000
+    }));
+
+    console.log(`Started PZEM history stream for client ${client.id} with limit ${limit}`);
+}
+
+function stopPzemHistoryStream(client: ClientState) {
+    if (client.intervals.pzemHistory) {
+        clearInterval(client.intervals.pzemHistory);
+        client.intervals.pzemHistory = undefined;
+    }
+    
+    client.subscriptions.pzemHistory = false;
+    client.subscriptions.pzemHistoryLimit = undefined;
+    
+    client.ws.send(JSON.stringify({
+        type: 'stream_stopped',
+        stream: 'pzem_history'
+    }));
+
+    console.log(`Stopped PZEM history stream for client ${client.id}`);
+}
+
+function startTemperatureHistoryStream(client: ClientState, filter: keyof typeof timeFilters) {
+    // Stop existing stream if any
+    stopTemperatureHistoryStream(client);
+
+    const { interval } = timeFilters[filter] || timeFilters['1h'];
+    
+    // Send initial data immediately
+    sendTemperatureHistory(client.ws, filter);
+    
+    // Start interval
+    client.intervals.temperatureHistory = setInterval(() => {
+        sendTemperatureHistory(client.ws, filter);
+    }, interval);
+    
+    client.subscriptions.temperatureHistory = true;
+    client.subscriptions.temperatureFilter = filter;
+    
+    client.ws.send(JSON.stringify({
+        type: 'stream_started',
+        stream: 'temperature_history',
+        filter: filter,
+        interval: interval
+    }));
+
+    console.log(`Started temperature history stream for client ${client.id} with filter ${filter}`);
+}
+
+function stopTemperatureHistoryStream(client: ClientState) {
+    if (client.intervals.temperatureHistory) {
+        clearInterval(client.intervals.temperatureHistory);
+        client.intervals.temperatureHistory = undefined;
+    }
+    
+    client.subscriptions.temperatureHistory = false;
+    client.subscriptions.temperatureFilter = undefined;
+    
+    client.ws.send(JSON.stringify({
+        type: 'stream_stopped',
+        stream: 'temperature_history'
+    }));
+
+    console.log(`Stopped temperature history stream for client ${client.id}`);
+}
+
+function cleanupClient(clientId: string) {
+    const client = clients.get(clientId);
+    if (!client) return;
+
+    // Clear all intervals
+    if (client.intervals.latestData) {
+        clearInterval(client.intervals.latestData);
+    }
+    if (client.intervals.temperatureHistory) {
+        clearInterval(client.intervals.temperatureHistory);
+    }
+    if (client.intervals.pzemHistory) {
+        clearInterval(client.intervals.pzemHistory);
+    }
+
+    // Remove client from map
+    clients.delete(clientId);
+    
+    console.log(`Cleaned up client ${clientId}`);
+}
+
+// Optional: Add method to get active clients info (for debugging)
+export function getActiveClientsInfo() {
+    const clientsInfo = Array.from(clients.values()).map(client => ({
+        id: client.id,
+        subscriptions: client.subscriptions,
+        activeIntervals: {
+            latestData: !!client.intervals.latestData,
+            temperatureHistory: !!client.intervals.temperatureHistory,
+            pzemHistory: !!client.intervals.pzemHistory
+        }
+    }));
+
+    return {
+        totalClients: clients.size,
+        clients: clientsInfo
+    };
+}

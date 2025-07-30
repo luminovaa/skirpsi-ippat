@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import http from 'http';
 import routes from './routes';
-import { WebSocketManager } from './utils/ws-server';
+import { createWebSocketServer } from './utils/ws-server';
 
 const app = express();
 
@@ -25,7 +25,8 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 const httpServer = http.createServer(app);
-const wsManager = new WebSocketManager({ server: httpServer });
+createWebSocketServer(httpServer);
+
 httpServer.listen(PORT, () => {
   console.log(`Server is running on port: ${PORT}`);
 });
