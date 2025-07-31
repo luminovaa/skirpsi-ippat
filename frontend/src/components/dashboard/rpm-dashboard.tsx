@@ -226,31 +226,6 @@ const RPMDashboard = () => {
             </div>
           </div>
           
-          {/* RPM Range Indicators */}
-          <div className="mt-6 flex justify-between text-xs">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span className="text-muted-foreground">Low (≤20)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-              <span className="text-muted-foreground">Med (21-40)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-              <span className="text-muted-foreground">High (&gt;40)</span>
-            </div>
-          </div>
-
-          {/* Debug info - remove in production */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mt-4 p-2 bg-muted rounded text-xs">
-              <p>Connection Status: {isConnected ? 'Connected' : 'Disconnected'}</p>
-              <p>WebSocket Ready: {wsReady ? 'Yes' : 'No'}</p>
-              <p>Last RPM: {rpmData?.rpm ?? 'None'}</p>
-              <p>Last Update: {rpmData?.created_at ? new Date(rpmData.created_at).toLocaleTimeString() : 'None'}</p>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

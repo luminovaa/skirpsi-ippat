@@ -31,7 +31,6 @@ interface ClientState {
 
 const clients = new Map<string, ClientState>();
 
-// Helper function untuk mendapatkan max RPM
 async function getMaxRpmData() {
     try {
         const tenSecondAgo = new Date(Date.now() - 10000);
@@ -57,7 +56,6 @@ async function getMaxRpmData() {
     }
 }
 
-// Fixed implementation untuk comparison
 async function getLatestDataForComparison() {
     try {
         const timeZone = 'Asia/Jakarta';
@@ -65,7 +63,6 @@ async function getLatestDataForComparison() {
         const startOfDayWIB = startOfDay(now);
         const endOfDayWIB = endOfDay(now);
 
-        // Ambil semua data terbaru sekaligus
         const [pzemData, suhuData, rpmData, suhuAvg] = await Promise.all([
             prisma.pzem.findFirst({ orderBy: { created_at: 'desc' } }),
             prisma.suhu.findFirst({ orderBy: { created_at: 'desc' } }),
@@ -212,13 +209,11 @@ function handleClientMessage(clientId: string, data: any) {
 function startLatestDataStream(client: ClientState) {
     stopLatestDataStream(client);
 
-    // Send initial data immediately
     sendLatestDataWithChangeDetection(client);
     
-    // Gunakan interval yang lebih reasonable - 2 detik
     client.intervals.latestData = setInterval(() => {
         sendLatestDataWithChangeDetection(client);
-    }, 2000); // Changed from 500ms to 2000ms
+    }, 2000); 
     
     client.subscriptions.latestData = true;
     
@@ -238,12 +233,10 @@ async function sendLatestDataWithChangeDetection(client: ClientState) {
         
         if (!latestData) {
             console.error('Failed to fetch latest data');
-            // Fallback ke fungsi original
             sendLatestData(client.ws);
             return;
         }
         
-        // Create hash dari data yang relevan untuk comparison
         const dataForHash = {
             pzem: latestData.pzem ? {
                 id: latestData.pzem.id,
@@ -267,11 +260,9 @@ async function sendLatestDataWithChangeDetection(client: ClientState) {
         
         const currentHash = JSON.stringify(dataForHash);
         
-        // Send data jika hash berubah ATAU jika ini adalah pengiriman pertama
         if (client.lastDataHash !== currentHash) {
             client.lastDataHash = currentHash;
             
-            // Send via WebSocket dengan format yang sama seperti sendLatestData
             client.ws.send(JSON.stringify({
                 type: 'latest_data',
                 data: latestData
@@ -283,7 +274,6 @@ async function sendLatestDataWithChangeDetection(client: ClientState) {
         }
     } catch (error) {
         console.error('Error in sendLatestDataWithChangeDetection:', error);
-        // Fallback ke fungsi original jika ada error
         try {
             sendLatestData(client.ws);
         } catch (fallbackError) {
@@ -299,7 +289,7 @@ function stopLatestDataStream(client: ClientState) {
     }
     
     client.subscriptions.latestData = false;
-    client.lastDataHash = undefined; // Reset hash when stopping
+    client.lastDataHash = undefined; 
     
     client.ws.send(JSON.stringify({
         type: 'stream_stopped',
