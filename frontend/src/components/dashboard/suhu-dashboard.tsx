@@ -264,23 +264,6 @@ const SuhuDashboard = () => {
               </p>
             </div>
           </div>
-
-          {/* Temperature Range Indicators */}
-          <div className="mt-6 flex justify-between text-xs">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-              <span className="text-muted-foreground">Light (≤170°C)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-              <span className="text-muted-foreground">Medium (171-239°C)</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-              <span className="text-muted-foreground">Dark (≥240°C)</span>
-            </div>
-          </div>
-
           {/* Debug info - remove in production */}
           {process.env.NODE_ENV === 'development' && (
             <div className="mt-4 p-2 bg-muted rounded text-xs">

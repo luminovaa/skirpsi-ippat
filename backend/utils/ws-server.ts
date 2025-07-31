@@ -5,6 +5,11 @@ import { setWebSocketServer as setRPMWebSocketServer } from '../src/rpm/controll
 import { sendLatestData } from '../src/with-ws/get-latest-data';
 import { sendPzemHistory, sendTemperatureHistory, timeFilters } from '../src/with-ws/get-suhu-50-latest';
 import { startDataMonitor } from './pzem-checker';
+import { PrismaClient } from '@prisma/client';
+import { toZonedTime } from 'date-fns-tz';
+import { endOfDay, startOfDay } from 'date-fns';
+
+const prisma = new PrismaClient();
 
 interface ClientState {
     id: string;
@@ -21,11 +26,81 @@ interface ClientState {
         pzemHistory: boolean;
         pzemHistoryLimit?: number;
     };
-    lastDataHash?: string; // For detecting data changes
+    lastDataHash?: string;
 }
 
-// Store client states
 const clients = new Map<string, ClientState>();
+
+// Helper function untuk mendapatkan max RPM
+async function getMaxRpmData() {
+    try {
+        const tenSecondAgo = new Date(Date.now() - 10000);
+        const maxAggregate = await prisma.rpm.aggregate({
+            _max: { rpm: true },
+            where: { created_at: { gte: tenSecondAgo } }
+        });
+
+        if (maxAggregate._max.rpm === null) return null;
+
+        const latestMaxRpm = await prisma.rpm.findFirst({
+            where: {
+                rpm: maxAggregate._max.rpm,
+                created_at: { gte: tenSecondAgo }
+            },
+            orderBy: { created_at: 'desc' }
+        });
+
+        return latestMaxRpm;
+    } catch (error) {
+        console.error("Error fetching max RPM data: ", error);
+        return null;
+    }
+}
+
+// Fixed implementation untuk comparison
+async function getLatestDataForComparison() {
+    try {
+        const timeZone = 'Asia/Jakarta';
+        const now = toZonedTime(new Date(), timeZone);
+        const startOfDayWIB = startOfDay(now);
+        const endOfDayWIB = endOfDay(now);
+
+        // Ambil semua data terbaru sekaligus
+        const [pzemData, suhuData, rpmData, suhuAvg] = await Promise.all([
+            prisma.pzem.findFirst({ orderBy: { created_at: 'desc' } }),
+            prisma.suhu.findFirst({ orderBy: { created_at: 'desc' } }),
+            getMaxRpmData(),
+            prisma.suhu.aggregate({
+                _avg: { temperature: true },
+                _min: { temperature: true },
+                _max: { temperature: true },
+                where: {
+                    created_at: {
+                        gte: startOfDayWIB,
+                        lt: endOfDayWIB,
+                    },
+                },
+            })
+        ]);
+
+        const result = {
+            average: suhuAvg._avg.temperature,
+            min: suhuAvg._min.temperature,
+            max: suhuAvg._max.temperature
+        };
+
+        return {
+            pzem: pzemData,
+            suhu: suhuData,
+            suhuAvg: result,
+            rpm: rpmData,
+            timestamp: new Date().toISOString()
+        };
+    } catch (error) {
+        console.error('Error in getLatestDataForComparison:', error);
+        return null;
+    }
+}
 
 export const createWebSocketServer = (server: any) => {
     const wss = new WebSocketServer({ server });
@@ -38,7 +113,6 @@ export const createWebSocketServer = (server: any) => {
     wss.on('connection', (ws) => {
         console.log('New WebSocket connection');
 
-        // Create unique client ID and state
         const clientId = Math.random().toString(36).substr(2, 9);
         const clientState: ClientState = {
             id: clientId,
@@ -53,7 +127,6 @@ export const createWebSocketServer = (server: any) => {
         
         clients.set(clientId, clientState);
 
-        // Send initial connection confirmation
         ws.send(JSON.stringify({
             type: 'connection_established',
             clientId: clientId,
@@ -103,38 +176,30 @@ function handleClientMessage(clientId: string, data: any) {
         case 'start_latest_data':
             startLatestDataStream(client);
             break;
-
         case 'stop_latest_data':
             stopLatestDataStream(client);
             break;
-
         case 'get_temperature_history':
             const filter = (data.filter || '1h') as keyof typeof timeFilters;
             startTemperatureHistoryStream(client, filter);
             break;
-
         case 'stop_temperature_history':
             stopTemperatureHistoryStream(client);
             break;
-
         case 'start_pzem_history':
             const historyLimit = data.limit || 50;
             startPzemHistoryStream(client, historyLimit);
             break;
-
         case 'stop_pzem_history':
             stopPzemHistoryStream(client);
             break;
-
         case 'get_pzem_history_once':
             const onceLimit = data.limit || 50;
             sendPzemHistory(client.ws, onceLimit);
             break;
-
         case 'ping':
             client.ws.send(JSON.stringify({ type: 'pong' }));
             break;
-
         default:
             client.ws.send(JSON.stringify({
                 type: 'error',
@@ -145,23 +210,22 @@ function handleClientMessage(clientId: string, data: any) {
 }
 
 function startLatestDataStream(client: ClientState) {
-    // Stop existing stream if any
     stopLatestDataStream(client);
 
     // Send initial data immediately
     sendLatestDataWithChangeDetection(client);
     
-    // Start interval - check every 500ms but only send if data changed
+    // Gunakan interval yang lebih reasonable - 2 detik
     client.intervals.latestData = setInterval(() => {
         sendLatestDataWithChangeDetection(client);
-    }, 500); // Reduced interval for better responsiveness
+    }, 2000); // Changed from 500ms to 2000ms
     
     client.subscriptions.latestData = true;
     
     client.ws.send(JSON.stringify({
         type: 'stream_started',
         stream: 'latest_data',
-        interval: 500,
+        interval: 2000,
         note: 'Data sent only when changed'
     }));
 
@@ -170,45 +234,62 @@ function startLatestDataStream(client: ClientState) {
 
 async function sendLatestDataWithChangeDetection(client: ClientState) {
     try {
-        // Get latest data (you'll need to modify this based on your sendLatestData implementation)
         const latestData = await getLatestDataForComparison();
         
-        // Create hash of current data
-        const currentHash = JSON.stringify(latestData);
+        if (!latestData) {
+            console.error('Failed to fetch latest data');
+            // Fallback ke fungsi original
+            sendLatestData(client.ws);
+            return;
+        }
         
-        // Only send if data changed
+        // Create hash dari data yang relevan untuk comparison
+        const dataForHash = {
+            pzem: latestData.pzem ? {
+                id: latestData.pzem.id,
+                voltage: latestData.pzem.voltage,
+                current: latestData.pzem.current,
+                power: latestData.pzem.power,
+                energy: latestData.pzem.energy,
+                frequency: latestData.pzem.frequency,
+                pf: latestData.pzem.power_factor
+            } : null,
+            suhu: latestData.suhu ? {
+                id: latestData.suhu.id,
+                temperature: latestData.suhu.temperature
+            } : null,
+            rpm: latestData.rpm ? {
+                id: latestData.rpm.id,
+                rpm: latestData.rpm.rpm
+            } : null,
+            suhuAvg: latestData.suhuAvg
+        };
+        
+        const currentHash = JSON.stringify(dataForHash);
+        
+        // Send data jika hash berubah ATAU jika ini adalah pengiriman pertama
         if (client.lastDataHash !== currentHash) {
             client.lastDataHash = currentHash;
-            sendLatestData(client.ws);
+            
+            // Send via WebSocket dengan format yang sama seperti sendLatestData
+            client.ws.send(JSON.stringify({
+                type: 'latest_data',
+                data: latestData
+            }));
+            
             console.log(`Sent latest data to client ${client.id} (data changed)`);
+        } else {
+            console.log(`No data change for client ${client.id}, skipping send`);
         }
     } catch (error) {
         console.error('Error in sendLatestDataWithChangeDetection:', error);
-        // Fallback to regular send
-        sendLatestData(client.ws);
+        // Fallback ke fungsi original jika ada error
+        try {
+            sendLatestData(client.ws);
+        } catch (fallbackError) {
+            console.error('Fallback sendLatestData also failed:', fallbackError);
+        }
     }
-}
-
-// Helper function - you need to implement this based on your data structure
-async function getLatestDataForComparison() {
-    // This should return the same data structure that sendLatestData sends
-    // but in a format suitable for comparison
-    // Example implementation:
-    /*
-    const [latestPzem, latestSuhu, latestRpm] = await Promise.all([
-        prisma.pzem.findFirst({ orderBy: { created_at: 'desc' } }),
-        prisma.suhu.findFirst({ orderBy: { created_at: 'desc' } }),
-        prisma.rpm.findFirst({ orderBy: { created_at: 'desc' } })
-    ]);
-    
-    return {
-        pzem: latestPzem,
-        suhu: latestSuhu,
-        rpm: latestRpm,
-        timestamp: new Date()
-    };
-    */
-    return {}; // Placeholder - implement based on your actual data structure
 }
 
 function stopLatestDataStream(client: ClientState) {
@@ -218,6 +299,7 @@ function stopLatestDataStream(client: ClientState) {
     }
     
     client.subscriptions.latestData = false;
+    client.lastDataHash = undefined; // Reset hash when stopping
     
     client.ws.send(JSON.stringify({
         type: 'stream_stopped',
@@ -228,13 +310,10 @@ function stopLatestDataStream(client: ClientState) {
 }
 
 function startPzemHistoryStream(client: ClientState, limit: number = 50) {
-    // Stop existing stream if any
     stopPzemHistoryStream(client);
     
-    // Send initial data immediately
     sendPzemHistory(client.ws, limit);
     
-    // Start interval - send every 5 seconds for PZEM history
     client.intervals.pzemHistory = setInterval(() => {
         sendPzemHistory(client.ws, limit);
     }, 1000);
@@ -270,15 +349,12 @@ function stopPzemHistoryStream(client: ClientState) {
 }
 
 function startTemperatureHistoryStream(client: ClientState, filter: keyof typeof timeFilters) {
-    // Stop existing stream if any
     stopTemperatureHistoryStream(client);
 
     const { interval } = timeFilters[filter] || timeFilters['1h'];
     
-    // Send initial data immediately
     sendTemperatureHistory(client.ws, filter);
     
-    // Start interval
     client.intervals.temperatureHistory = setInterval(() => {
         sendTemperatureHistory(client.ws, filter);
     }, interval);
@@ -317,7 +393,6 @@ function cleanupClient(clientId: string) {
     const client = clients.get(clientId);
     if (!client) return;
 
-    // Clear all intervals
     if (client.intervals.latestData) {
         clearInterval(client.intervals.latestData);
     }
@@ -328,13 +403,11 @@ function cleanupClient(clientId: string) {
         clearInterval(client.intervals.pzemHistory);
     }
 
-    // Remove client from map
     clients.delete(clientId);
     
     console.log(`Cleaned up client ${clientId}`);
 }
 
-// Optional: Add method to get active clients info (for debugging)
 export function getActiveClientsInfo() {
     const clientsInfo = Array.from(clients.values()).map(client => ({
         id: client.id,

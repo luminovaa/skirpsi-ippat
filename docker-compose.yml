@@ -1,19 +1,19 @@
 services:
-  # backend:
-  #   build:
-  #     context: ./backend
-  #   container_name: backend-ippat
-  #   restart: always
-  #   env_file:
-  #     - ./backend/.env
-  #   ports:
-  #     - "9056:9056"
-  #   networks:
-  #     - ippat-net
-  #   # depends_on:
-  #   #   mysql:
-  #   #     condition: service_healthy 
-  #   command: sh -c "npx prisma db push && ts-node index.ts"
+  backend:
+    build:
+      context: ./backend
+    container_name: backend-ippat
+    restart: always
+    env_file:
+      - ./backend/.env
+    ports:
+      - "9056:9056"
+    networks:
+      - ippat-net
+    # depends_on:
+    #   mysql:
+    #     condition: service_healthy 
+    command: sh -c "npx prisma db push && ts-node index.ts"
 
 
   frontend:
