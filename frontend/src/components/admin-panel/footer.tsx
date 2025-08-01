@@ -16,14 +16,14 @@ export function Footer() {
           </Link>
           . The source code is available on{" "}
           <Link
-            href="https://github.com/luminovaa"
+            href="https://github.com/speedjos19"
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium underline underline-offset-4"
           >
             GitHub
           </Link>
-          {" "} Luminovaaa
+          {" "} Speedjos19
         </p>
       </div>
     </div>

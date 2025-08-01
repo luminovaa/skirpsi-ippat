@@ -1,46 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import { toZonedTime } from 'date-fns-tz';
-import { endOfDay, max, startOfDay } from 'date-fns';
+import { endOfDay, startOfDay } from 'date-fns';
 
 const prisma = new PrismaClient();
 
-async function getMaxRpmData() {
-    try {
-        const tenSecondAgo = new Date(Date.now() - 10000);
-
-        const maxAgregate = await prisma.rpm.aggregate({
-            _max: {
-                rpm: true,
-            },
-            where: {
-                created_at: {
-                    gte: tenSecondAgo,
-                }
-            }
-        })
-
-        if(maxAgregate._max.rpm === null){
-            return null;
-        }
-
-        const latestMaxRpm = await prisma.rpm.findFirst({
-            where: {
-                rpm: maxAgregate._max.rpm,
-                created_at: {
-                    gte: tenSecondAgo,
-                }
-            },
-            orderBy: {
-                created_at: 'desc'
-            }
-        })
-
-        return latestMaxRpm;
-    } catch (error) {
-        console.error("Error fetching max RPM data: ", error);
-        return null;
-    }
-}
 export async function sendLatestData(ws: any) {
     try {
         const timeZone = 'Asia/Jakarta';
@@ -55,7 +18,10 @@ export async function sendLatestData(ws: any) {
             orderBy: { created_at: 'desc' }
         });
 
-        const rpmData = await getMaxRpmData();
+        const rpmData = await prisma.rpm.findFirst({
+            orderBy: { created_at: 'desc' }
+        })
+
         // Ambil data Suhu terbaru
         const suhuData = await prisma.suhu.findFirst({
             orderBy: { created_at: 'desc' }

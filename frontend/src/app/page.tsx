@@ -21,7 +21,7 @@ import { DownloadExcel } from "@/components/dashboard/excel";
 
 export default function DashboardPage() {
   return (
-    <ContentLayout title="Dashboard">
+    <ContentLayout title="Dashboard Roaster Squad 2025">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
