@@ -1,27 +1,48 @@
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-export async function sendTemperatureHistory(ws: any, limit: number = 50) {
+export async function sendTemperatureHistorySQL(ws: any) {
     try {
-        // Ambil 50 data suhu terbaru
-        const temperatureHistory = await prisma.suhu.findMany({
-            orderBy: { created_at: 'desc' },
-            take: limit,
-            select: {
-                id: true,
-                temperature: true,
-                created_at: true
-            }
-        });
+        // Query SQL MySQL untuk group by interval 10 detik dalam 1 jam terakhir
+        const result = await prisma.$queryRaw`
+            SELECT 
+                CONCAT('avg_', UNIX_TIMESTAMP(interval_start)) as id,
+                AVG(temperature) as temperature,
+                interval_start as created_at,
+                COUNT(*) as data_count,
+                MIN(temperature) as min_temp,
+                MAX(temperature) as max_temp
+            FROM (
+                SELECT 
+                    id,
+                    temperature,
+                    FROM_UNIXTIME(
+                        FLOOR(UNIX_TIMESTAMP(created_at) / 10) * 10
+                    ) as interval_start
+                FROM suhu 
+                WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)
+                ORDER BY created_at ASC
+            ) as grouped_data
+            GROUP BY interval_start
+            ORDER BY interval_start ASC
+        `;
 
-        // Urutkan data berdasarkan timestamp (dari lama ke baru) untuk chart
-        const sortedData = [...temperatureHistory].reverse();
+        // Format hasil untuk konsistensi tipe data
+        const formattedData = (result as any[]).map(item => ({
+            id: String(item.id),
+            temperature: Math.round(Number(item.temperature) * 100) / 100,
+            created_at: new Date(item.created_at),
+            data_count: Number(item.data_count),
+            min_temp: Math.round(Number(item.min_temp) * 100) / 100,
+            max_temp: Math.round(Number(item.max_temp) * 100) / 100
+        }));
 
-        // Kirim data ke client
         ws.send(JSON.stringify({
             type: 'temperature_history',
-            data: sortedData,
-            count: sortedData.length
+            data: formattedData,
+            count: formattedData.length,
+            interval: '10_seconds',
+            period: '1_hour'
         }));
     } catch (error) {
         console.error('Error sending temperature history data:', error);

@@ -3,7 +3,7 @@ import { setWebSocketServer as setPzemWebSocketServer } from '../src/pzem/contro
 import { setWebSocketServer as setSuhuWebSocketServer } from '../src/suhu/controller/post-suhu';
 import { setWebSocketServer as setRPMWebSocketServer } from '../src/rpm/controller/post-rpm';
 import { sendLatestData } from '../src/with-ws/get-latest-data';
-import { sendPzemHistory, sendTemperatureHistory } from '../src/with-ws/get-suhu-50-latest';
+import { sendPzemHistory, sendTemperatureHistorySQL } from '../src/with-ws/get-suhu-50-latest';
 import { startDataMonitor } from './pzem-checker';
 
 export const createWebSocketServer = (server: any) => {
@@ -29,8 +29,7 @@ export const createWebSocketServer = (server: any) => {
                 const data = JSON.parse(message.toString());
 
                 if (data.type === 'get_temperature_history') {
-                    const limit = data.limit || 50;
-                    sendTemperatureHistory(ws, limit);
+                    sendTemperatureHistorySQL(ws);
                 }
 
                 if (data.type === 'get_pzem_history') {

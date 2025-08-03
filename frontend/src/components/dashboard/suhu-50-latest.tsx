@@ -82,12 +82,8 @@ const TemperatureHistoryChart = () => {
   const data = {
     labels: temperatureHistory.map((item) => {
       const date = new Date(item.created_at);
-      return `${date.getHours()}:${String(date.getMinutes()).padStart(
-        2,
-        "0"
-      )}:${String(date.getSeconds()).padStart(2, "0")}.${String(
-        date.getMilliseconds()
-      ).padStart(3, "0")}`;
+      // Format sederhana: HH:MM
+      return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
     }),
     datasets: [
       {
@@ -101,7 +97,8 @@ const TemperatureHistoryChart = () => {
         borderColor:
           theme === "dark" ? "rgba(37, 99, 235, 1)" : "rgba(37, 99, 235, 1)",
         borderWidth: 2,
-        pointRadius: 2,
+        pointRadius: 0, // Hilangkan titik-titik
+        pointHoverRadius: 4, // Titik muncul saat hover
         pointBackgroundColor:
           theme === "dark" ? "rgba(37, 99, 235, 1)" : "rgba(37, 99, 235, 1)",
         tension: 0.4,
@@ -131,6 +128,12 @@ const TemperatureHistoryChart = () => {
             const value = context.parsed.y;
             return `${value.toFixed(1)}°C`;
           },
+          title: (context: any) => {
+            // Tampilkan format lengkap di tooltip
+            const index = context[0].dataIndex;
+            const date = new Date(temperatureHistory[index].created_at);
+            return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
+          },
         },
       },
     },
@@ -146,8 +149,10 @@ const TemperatureHistoryChart = () => {
         ticks: {
           color: theme === "dark" ? "#e4e4e7" : "#27272a",
           font: {
-            size: 10,
+            size: 11,
           },
+          // Tampilkan label dengan interval tertentu untuk menghindari overlap
+          maxTicksLimit: 8,
         },
       },
       y: {
