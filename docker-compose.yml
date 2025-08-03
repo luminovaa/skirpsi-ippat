@@ -10,9 +10,9 @@ services:
       - "9056:9056"
     networks:
       - ippat-net
-    # depends_on:
-    #   mysql:
-    #     condition: service_healthy 
+    depends_on:
+      mysql:
+        condition: service_healthy 
     command: sh -c "npx prisma db push && ts-node index.ts"
 
 
@@ -25,37 +25,39 @@ services:
       - ./frontend/.env.production
     ports:
       - "4050:4050"
-    # depends_on:yy
+    depends_on:
+      backend:
+        condition: service_healthy
     networks:
       - ippat-net
 
-  # mysql:
-  #   image: mysql:8.0
-  #   container_name: mysql-ippat
-  #   restart: always    
-  #   environment:
-  #     MYSQL_ROOT_PASSWORD: polinema
-  #     MYSQL_DATABASE: ippat_db
-  #     MYSQL_USER: ippat_user
-  #     MYSQL_PASSWORD: polinema
-  #     TZ: Asia/Jakarta
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-ippat
+    restart: always    
+    environment:
+      MYSQL_ROOT_PASSWORD: polinema
+      MYSQL_DATABASE: ippat_db
+      MYSQL_USER: ippat_user
+      MYSQL_PASSWORD: polinema
+      TZ: Asia/Jakarta
 
-  #   volumes:
-  #     - mysql_data:/var/lib/mysql  
-  #     - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
-  #   networks:
-  #     - ippat-net
-  #   ports:
-  #     - "3306:3306" 
-  #   healthcheck:
-  #     test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-  #     interval: 5s
-  #     timeout: 10s
-  #     retries: 10
+    volumes:
+      - mysql_data:/var/lib/mysql  
+      - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    networks:
+      - ippat-net
+    ports:
+      - "3306:3306" 
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
 
 networks:
   ippat-net:
     driver: bridge
 
-# volumes:
-#   mysql_data:  
+volumes:
+  mysql_data:  
