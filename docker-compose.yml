@@ -25,9 +25,6 @@ services:
       - ./frontend/.env.production
     ports:
       - "4050:4050"
-    depends_on:
-      backend:
-        condition: service_healthy
     networks:
       - ippat-net
 
