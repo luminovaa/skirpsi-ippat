@@ -1,10 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
-
 export async function sendTemperatureHistorySQL(ws: any) {
     try {
-        // Gunakan CONVERT_TZ untuk memastikan waktu sekarang dalam WIB
+        // Query SQL MySQL untuk group by interval 10 detik dalam 1 jam terakhir
         const result = await prisma.$queryRaw`
             SELECT 
                 CONCAT('avg_', UNIX_TIMESTAMP(interval_start)) as id,
@@ -18,21 +17,20 @@ export async function sendTemperatureHistorySQL(ws: any) {
                     id,
                     temperature,
                     FROM_UNIXTIME(
-                        FLOOR(UNIX_TIMESTAMP(
-                            CONVERT_TZ(created_at, '+00:00', '+07:00')  -- Konversi ke WIB
-                        ) / 10) * 10
+                        FLOOR(UNIX_TIMESTAMP(created_at) / 10) * 10
                     ) as interval_start
                 FROM suhu 
-                WHERE created_at >= CONVERT_TZ(DATE_SUB(NOW(), INTERVAL 1 HOUR), '+00:00', '+07:00')
+                WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)
                 ORDER BY created_at ASC
             ) as grouped_data
             GROUP BY interval_start
             ORDER BY interval_start ASC
         `;
 
+        console.log('query',result);
         // if ((result as any[]).length === 0) {
         //     const fallbackData = await prisma.suhu.findMany({
-        //         orderBy: { created_at: 'asc' },
+        //         orderBy: { created_at: 'desc' },
         //         take: 50
         //     });
 
@@ -55,11 +53,11 @@ export async function sendTemperatureHistorySQL(ws: any) {
         //     }
         // }
 
-        // Format hasil
+        // Format hasil untuk konsistensi tipe data
         const formattedData = (result as any[]).map(item => ({
             id: String(item.id),
             temperature: Math.round(Number(item.temperature) * 100) / 100,
-            created_at: new Date(item.created_at), // MySQL mengembalikan sebagai string, otomatis di-parse
+            created_at: new Date(item.created_at),
             data_count: Number(item.data_count),
             min_temp: Math.round(Number(item.min_temp) * 100) / 100,
             max_temp: Math.round(Number(item.max_temp) * 100) / 100
@@ -70,8 +68,8 @@ export async function sendTemperatureHistorySQL(ws: any) {
             data: formattedData,
             count: formattedData.length,
             interval: '10_seconds',
-            period: '1_hour_wib'
-        }));    
+            period: '1_hour'
+        }));
     } catch (error) {
         console.error('Error sending temperature history data:', error);
     }
