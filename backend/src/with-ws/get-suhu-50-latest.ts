@@ -6,16 +6,21 @@ export async function sendTemperatureHistorySQL(ws: any) {
         // Query SQL MySQL untuk group by interval 10 detik dalam 1 jam terakhir
        const result = await prisma.$queryRaw`
     SELECT 
-        CONCAT('avg_', FLOOR(UNIX_TIMESTAMP(created_at) / 10) * 10) as id,
+        CONCAT('avg_', interval_timestamp) as id,
         AVG(temperature) as temperature,
-        FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(created_at) / 10) * 10) as created_at,
+        FROM_UNIXTIME(interval_timestamp) as created_at,
         COUNT(*) as data_count,
         MIN(temperature) as min_temp,
         MAX(temperature) as max_temp
-    FROM suhu 
-    WHERE UNIX_TIMESTAMP(created_at) >= UNIX_TIMESTAMP(NOW()) - 3600
-    GROUP BY FLOOR(UNIX_TIMESTAMP(created_at) / 10)
-    ORDER BY created_at ASC
+    FROM (
+        SELECT 
+            temperature,
+            FLOOR(UNIX_TIMESTAMP(created_at) / 10) * 10 as interval_timestamp
+        FROM suhu 
+        WHERE UNIX_TIMESTAMP(created_at) >= UNIX_TIMESTAMP(NOW()) - 3600
+    ) as grouped
+    GROUP BY interval_timestamp
+    ORDER BY interval_timestamp ASC
 `;
 
         console.log('query',result);
