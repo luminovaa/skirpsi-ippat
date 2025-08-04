@@ -6,7 +6,7 @@ import { sendLatestData } from '../src/with-ws/get-latest-data';
 import { sendPzemHistory, sendTemperatureHistorySQL } from '../src/with-ws/get-suhu-50-latest';
 import { startDataMonitor } from './pzem-checker';
 
-export const createWebSocketServer = (server: any) => {
+export const createWebSocketServerFixed = (server: any) => {
     const wss = new WebSocketServer({ server });
 
     setPzemWebSocketServer(wss);
@@ -14,27 +14,36 @@ export const createWebSocketServer = (server: any) => {
     setRPMWebSocketServer(wss);
     startDataMonitor(wss);
 
-
     wss.on('connection', (ws) => {
         console.log('New WebSocket connection');
-
-        // sendLatestData(ws);
-
-        // const interval = setInterval(() => {
-        //     sendLatestData(ws);
-        // }, 1000); // iki gae update data setiap 1 detik
+        
+        let realtimeInterval: NodeJS.Timeout | null = null;
+        let historyInterval: NodeJS.Timeout | null = null;
 
         ws.on('message', (message) => {
             try {
                 const data = JSON.parse(message.toString());
 
-                 if (data.type === 'get_latest_data') {
-                    // Client request latest data
-                    sendLatestData(ws);
+                if (data.type === 'get_temperature_history') {
+                    // Kirim data history sekali
+                    sendTemperatureHistorySQL(ws);
+                    
+                    // Setup interval untuk history update (10 detik)
+                    if (historyInterval) clearInterval(historyInterval);
+                    historyInterval = setInterval(() => {
+                        sendTemperatureHistorySQL(ws);
+                    }, 10000); // Update history setiap 10 detik
                 }
 
-                if (data.type === 'get_temperature_history') {
-                    sendTemperatureHistorySQL(ws);
+                if (data.type === 'get_realtime_data') {
+                    // Setup interval untuk realtime (1 detik)
+                    if (realtimeInterval) clearInterval(realtimeInterval);
+                    realtimeInterval = setInterval(() => {
+                        sendLatestData(ws);
+                    }, 1000);
+                    
+                    // Kirim data awal
+                    sendLatestData(ws);
                 }
 
                 if (data.type === 'get_pzem_history') {
@@ -48,8 +57,10 @@ export const createWebSocketServer = (server: any) => {
 
         ws.on('close', () => {
             console.log('Client disconnected');
-            // clearInterval(interval);
+            if (realtimeInterval) clearInterval(realtimeInterval);
+            if (historyInterval) clearInterval(historyInterval);
         });
     });
+    
     return wss;
 };

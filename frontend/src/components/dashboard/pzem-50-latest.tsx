@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -75,6 +75,29 @@ const PzemHistoryChart = () => {
   );
 
   const { socket } = useWebSocket(wsUrl, socketCallbacks);
+
+  useEffect(() => {
+  const fallbackInterval = setInterval(() => {
+    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+      // Cek apakah masih ada data masuk, jika tidak request manual
+      const now = Date.now();
+      const lastUpdate = pzemHistory.length > 0 
+        ? new Date(pzemHistory[pzemHistory.length - 1].created_at).getTime()
+        : 0;
+      
+      // Jika data terakhir lebih dari 5 detik, request manual
+      if (now - lastUpdate > 5000) {
+        socket.current.send(
+          JSON.stringify({ type: "get_pzem_history", limit: 5 })
+        );
+      }
+    }
+  }, 5000);
+
+  return () => {
+    clearInterval(fallbackInterval);
+  };
+}, [socket, pzemHistory]);
 
   // Chart data and options
   const data = {

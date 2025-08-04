@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -46,21 +46,17 @@ const TemperatureHistoryChart = () => {
         setIsConnected(true);
         setLoading(false);
         setError(null);
-        // Minta data awal
         socket.current?.send(
-          JSON.stringify({ type: "get_temperature_history", limit: 50 })
+          JSON.stringify({ type: "get_temperature_history" })
         );
       },
       onMessage: (message: any) => {
-        console.log("Received message:", message);
+        console.log("Received message:", message);        
         if (message.type === "temperature_history") {
           setTemperatureHistory(message.data);
-        } else if (message.type === "new_temperature") {
-          setTemperatureHistory((prev) => [...prev, message.data].slice(-50));
-        } else if (message.type === "latest_data") {
-          setTemperatureHistory((prev) =>
-            [...prev, message.data.suhu].slice(-50)
-          );
+        }
+        else if (message.type === "latest_data") {
+          return;
         }
       },
       onClose: () => {
@@ -77,6 +73,21 @@ const TemperatureHistoryChart = () => {
   );
 
   const { socket } = useWebSocket(wsUrl, socketCallbacks);
+
+  // Manual refresh setiap 30 detik sebagai backup
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+        socket.current.send(
+          JSON.stringify({ type: "get_temperature_history" })
+        );
+      }
+    }, 30000); // Refresh setiap 30 detik
+
+    return () => {
+      clearInterval(refreshInterval);
+    };
+  }, [socket]);
 
   // Chart data and options
   const data = {
@@ -151,7 +162,6 @@ const TemperatureHistoryChart = () => {
           font: {
             size: 11,
           },
-          // Tampilkan label dengan interval tertentu untuk menghindari overlap
           maxTicksLimit: 8,
         },
       },
@@ -211,7 +221,7 @@ const TemperatureHistoryChart = () => {
       <Card className="w-full dark:bg-zinc-900">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-xl sm:text-2xl">
-            Temperature History
+            Temperature History (1 Hour - 10s Avg)
           </CardTitle>
           <Badge variant="destructive">ERROR</Badge>
         </CardHeader>
@@ -227,7 +237,7 @@ const TemperatureHistoryChart = () => {
       <Card className="dark:bg-zinc-900 px-4">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-xl sm:text-2xl">
-            Temperature History
+            Temperature History (1 Hour - 10s Avg)
           </CardTitle>
           <Badge
             variant={isConnected ? "default" : "destructive"}
