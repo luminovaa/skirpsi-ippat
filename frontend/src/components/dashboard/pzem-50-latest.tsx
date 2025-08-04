@@ -75,7 +75,7 @@ const PzemHistoryChart = () => {
   );
 
   const { socket } = useWebSocket(wsUrl, socketCallbacks);
-
+  
   // Chart data and options
   const data = {
     labels: pzemHistory.map((item) => {
