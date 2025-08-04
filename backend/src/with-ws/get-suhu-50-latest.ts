@@ -30,30 +30,30 @@ export async function sendTemperatureHistorySQL(ws: any) {
             ORDER BY interval_start ASC
         `;
 
-        if ((result as any[]).length === 0) {
-            const fallbackData = await prisma.suhu.findMany({
-                orderBy: { created_at: 'asc' },
-                take: 50
-            });
+        // if ((result as any[]).length === 0) {
+        //     const fallbackData = await prisma.suhu.findMany({
+        //         orderBy: { created_at: 'asc' },
+        //         take: 50
+        //     });
 
-            if (fallbackData.length > 0) {
-                ws.send(JSON.stringify({
-                    type: 'temperature_history',
-                    data: fallbackData.map(item => ({
-                        id: item.id,
-                        temperature: item.temperature,
-                        created_at: item.created_at,
-                        data_count: 1,
-                        min_temp: item.temperature,
-                        max_temp: item.temperature
-                    })),
-                    count: fallbackData.length,
-                    interval: 'raw_data',
-                    period: 'all_available'
-                }));
-                return;
-            }
-        }
+        //     if (fallbackData.length > 0) {
+        //         ws.send(JSON.stringify({
+        //             type: 'temperature_history',
+        //             data: fallbackData.map(item => ({
+        //                 id: item.id,
+        //                 temperature: item.temperature,
+        //                 created_at: item.created_at,
+        //                 data_count: 1,
+        //                 min_temp: item.temperature,
+        //                 max_temp: item.temperature
+        //             })),
+        //             count: fallbackData.length,
+        //             interval: 'raw_data',
+        //             period: 'all_available'
+        //         }));
+        //         return;
+        //     }
+        // }
 
         // Format hasil
         const formattedData = (result as any[]).map(item => ({
@@ -71,7 +71,7 @@ export async function sendTemperatureHistorySQL(ws: any) {
             count: formattedData.length,
             interval: '10_seconds',
             period: '1_hour_wib'
-        }));
+        }));    
     } catch (error) {
         console.error('Error sending temperature history data:', error);
     }
