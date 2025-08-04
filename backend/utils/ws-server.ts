@@ -6,7 +6,7 @@ import { sendLatestData } from '../src/with-ws/get-latest-data';
 import { sendPzemHistory, sendTemperatureHistorySQL } from '../src/with-ws/get-suhu-50-latest';
 import { startDataMonitor } from './pzem-checker';
 
-export const createWebSocketServerFixed = (server: any) => {
+export const createWebSocketServer = (server: any) => {
     const wss = new WebSocketServer({ server });
 
     setPzemWebSocketServer(wss);
@@ -14,36 +14,34 @@ export const createWebSocketServerFixed = (server: any) => {
     setRPMWebSocketServer(wss);
     startDataMonitor(wss);
 
+    // Tambahkan interval untuk mengirim history setiap 10 detik
+    const historyInterval = setInterval(() => {
+        wss.clients.forEach((client) => {
+            if (client.readyState === WebSocket.OPEN) {
+                sendTemperatureHistorySQL(client);
+            }
+        });
+    }, 10000); // 10 detik
+
     wss.on('connection', (ws) => {
         console.log('New WebSocket connection');
-        
-        let realtimeInterval: NodeJS.Timeout | null = null;
-        let historyInterval: NodeJS.Timeout | null = null;
+
+        // Kirim data terbaru setiap detik untuk client ini
+        const latestDataInterval = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+                sendLatestData(ws);
+            }
+        }, 1000);
+
+        // Kirim history segera setelah koneksi terbentuk
+        sendTemperatureHistorySQL(ws);
 
         ws.on('message', (message) => {
             try {
                 const data = JSON.parse(message.toString());
 
                 if (data.type === 'get_temperature_history') {
-                    // Kirim data history sekali
                     sendTemperatureHistorySQL(ws);
-                    
-                    // Setup interval untuk history update (10 detik)
-                    if (historyInterval) clearInterval(historyInterval);
-                    historyInterval = setInterval(() => {
-                        sendTemperatureHistorySQL(ws);
-                    }, 10000); // Update history setiap 10 detik
-                }
-
-                if (data.type === 'get_realtime_data') {
-                    // Setup interval untuk realtime (1 detik)
-                    if (realtimeInterval) clearInterval(realtimeInterval);
-                    realtimeInterval = setInterval(() => {
-                        sendLatestData(ws);
-                    }, 1000);
-                    
-                    // Kirim data awal
-                    sendLatestData(ws);
                 }
 
                 if (data.type === 'get_pzem_history') {
@@ -57,10 +55,14 @@ export const createWebSocketServerFixed = (server: any) => {
 
         ws.on('close', () => {
             console.log('Client disconnected');
-            if (realtimeInterval) clearInterval(realtimeInterval);
-            if (historyInterval) clearInterval(historyInterval);
+            clearInterval(latestDataInterval);
         });
     });
-    
+
+    // Bersihkan interval ketika server ditutup
+    wss.on('close', () => {
+        clearInterval(historyInterval);
+    });
+
     return wss;
 };

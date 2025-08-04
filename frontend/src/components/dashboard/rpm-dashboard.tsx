@@ -26,10 +26,6 @@ const RPMDashboard = () => {
         setIsConnected(true);
         setLoading(false);
         setError(null);
-
-        socket.current?.send(
-          JSON.stringify({ type: "get_realtime_data" })
-        );
       },
       onMessage: (message: any) => {
         if (message.type === "latest_data") {
@@ -49,8 +45,8 @@ const RPMDashboard = () => {
     []
   );
 
-  const { socket } = useWebSocket(wsUrl, socketCallbacks);
-  
+  useWebSocket(wsUrl, socketCallbacks);
+
   const classifyRPM = (rpm: number) => {
     if (rpm <= 20) return "Low";
     if (rpm <= 40) return "Medium";

@@ -21,11 +21,6 @@ const PzemDashboard = () => {
       setIsConnected(true);
       setLoading(false);
       setError(null);
-
-      socket.current?.send(
-        JSON.stringify({ type: "get_realtime_data" })
-      );
-
     },
     onMessage: (message: any) => {
       if (message.type === "latest_data") {
@@ -42,8 +37,8 @@ const PzemDashboard = () => {
       setIsConnected(false);
     },
   }), []);
-
-  const { socket } = useWebSocket(wsUrl, socketCallbacks);
+  
+  useWebSocket(wsUrl, socketCallbacks);
 
   
   if (loading) {

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -46,17 +46,20 @@ const TemperatureHistoryChart = () => {
         setIsConnected(true);
         setLoading(false);
         setError(null);
+        // Minta data awal
         socket.current?.send(
           JSON.stringify({ type: "get_temperature_history" })
         );
       },
       onMessage: (message: any) => {
-        console.log("Received message:", message);        
+        console.log("Received message:", message);
         if (message.type === "temperature_history") {
+          // Update history data
           setTemperatureHistory(message.data);
-        }
-        else if (message.type === "latest_data") {
-          return;
+        } else if (message.type === "latest_data") {
+          // Update untuk real-time (opsional)
+          // Jika Anda ingin menambahkan data terbaru ke history
+          // setTemperatureHistory(prev => [...prev, message.data.suhu].slice(-50));
         }
       },
       onClose: () => {
@@ -74,27 +77,14 @@ const TemperatureHistoryChart = () => {
 
   const { socket } = useWebSocket(wsUrl, socketCallbacks);
 
-  // Manual refresh setiap 30 detik sebagai backup
-  useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
-        socket.current.send(
-          JSON.stringify({ type: "get_temperature_history" })
-        );
-      }
-    }, 30000); // Refresh setiap 30 detik
-
-    return () => {
-      clearInterval(refreshInterval);
-    };
-  }, [socket]);
-
   // Chart data and options
   const data = {
     labels: temperatureHistory.map((item) => {
       const date = new Date(item.created_at);
       // Format sederhana: HH:MM
-      return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+      return `${String(date.getHours()).padStart(2, "0")}:${String(
+        date.getMinutes()
+      ).padStart(2, "0")}`;
     }),
     datasets: [
       {
@@ -143,7 +133,9 @@ const TemperatureHistoryChart = () => {
             // Tampilkan format lengkap di tooltip
             const index = context[0].dataIndex;
             const date = new Date(temperatureHistory[index].created_at);
-            return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
+            return `${String(date.getHours()).padStart(2, "0")}:${String(
+              date.getMinutes()
+            ).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
           },
         },
       },
@@ -162,6 +154,7 @@ const TemperatureHistoryChart = () => {
           font: {
             size: 11,
           },
+          // Tampilkan label dengan interval tertentu untuk menghindari overlap
           maxTicksLimit: 8,
         },
       },
@@ -221,7 +214,7 @@ const TemperatureHistoryChart = () => {
       <Card className="w-full dark:bg-zinc-900">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-xl sm:text-2xl">
-            Temperature History (1 Hour - 10s Avg)
+            Temperature History
           </CardTitle>
           <Badge variant="destructive">ERROR</Badge>
         </CardHeader>
@@ -237,7 +230,7 @@ const TemperatureHistoryChart = () => {
       <Card className="dark:bg-zinc-900 px-4">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-xl sm:text-2xl">
-            Temperature History (1 Hour - 10s Avg)
+            Temperature History
           </CardTitle>
           <Badge
             variant={isConnected ? "default" : "destructive"}

@@ -48,12 +48,6 @@ const SuhuDashboard = () => {
     onOpen: () => {
       console.log("WebSocket connection established");
       setIsConnected(true);
-      setLoading(true);
-      setError(null);
-
-      socket.current?.send(
-        JSON.stringify({ type: "get_realtime_data" })
-      );
       // Keep loading true until we actually receive data
     },
     onMessage: (message: any) => {
@@ -78,8 +72,8 @@ const SuhuDashboard = () => {
     },
   }), []);
   
-  const { socket } = useWebSocket(wsUrl, socketCallbacks);
-  
+  useWebSocket(wsUrl, socketCallbacks);
+
   if (loading) {
     return (
       <div className="w-full sm:justify-center">
