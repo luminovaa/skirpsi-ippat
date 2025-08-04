@@ -20,13 +20,18 @@ export const createWebSocketServer = (server: any) => {
 
         // sendLatestData(ws);
 
-        const interval = setInterval(() => {
-            sendLatestData(ws);
-        }, 1000); // iki gae update data setiap 1 detik
+        // const interval = setInterval(() => {
+        //     sendLatestData(ws);
+        // }, 1000); // iki gae update data setiap 1 detik
 
         ws.on('message', (message) => {
             try {
                 const data = JSON.parse(message.toString());
+
+                 if (data.type === 'get_latest_data') {
+                    // Client request latest data
+                    sendLatestData(ws);
+                }
 
                 if (data.type === 'get_temperature_history') {
                     sendTemperatureHistorySQL(ws);
@@ -43,7 +48,7 @@ export const createWebSocketServer = (server: any) => {
 
         ws.on('close', () => {
             console.log('Client disconnected');
-            clearInterval(interval);
+            // clearInterval(interval);
         });
     });
     return wss;
