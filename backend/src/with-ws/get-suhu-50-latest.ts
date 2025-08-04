@@ -3,7 +3,6 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 export async function sendTemperatureHistorySQL(ws: any) {
     try {
-        // Query SQL MySQL untuk group by interval 10 detik dalam 1 jam terakhir
        const result = await prisma.$queryRaw`
     SELECT 
         CONCAT('avg_', interval_timestamp) as id,
@@ -17,7 +16,7 @@ export async function sendTemperatureHistorySQL(ws: any) {
             temperature,
             FLOOR(UNIX_TIMESTAMP(created_at) / 10) * 10 as interval_timestamp
         FROM suhu 
-        WHERE UNIX_TIMESTAMP(created_at) >= UNIX_TIMESTAMP(NOW()) - 28800  -- 8 jam
+        WHERE UNIX_TIMESTAMP(created_at) >= UNIX_TIMESTAMP(NOW()) - 28800  
     ) as grouped
     GROUP BY interval_timestamp
     ORDER BY interval_timestamp ASC
@@ -49,7 +48,6 @@ export async function sendTemperatureHistorySQL(ws: any) {
         //     }
         // }
 
-        // Format hasil untuk konsistensi tipe data
         const formattedData = (result as any[]).map(item => ({
             id: String(item.id),
             temperature: Math.round(Number(item.temperature) * 100) / 100,
