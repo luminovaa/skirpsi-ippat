@@ -17,7 +17,7 @@ export async function sendTemperatureHistorySQL(ws: any) {
             temperature,
             FLOOR(UNIX_TIMESTAMP(created_at) / 10) * 10 as interval_timestamp
         FROM suhu 
-        WHERE UNIX_TIMESTAMP(created_at) >= UNIX_TIMESTAMP(NOW()) - 3600
+        WHERE UNIX_TIMESTAMP(created_at) >= UNIX_TIMESTAMP(NOW()) - 28800  -- 8 jam
     ) as grouped
     GROUP BY interval_timestamp
     ORDER BY interval_timestamp ASC
